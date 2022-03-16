@@ -345,7 +345,7 @@ func clearOldBlockHash() {
 			delete(blockHash2PI, bh)
 			delete(blockHash2Beta, bh)
 		}
-		var tmpSet = make([]string, nums-maxBlockHashCount)
+		var tmpSet = make([]string, maxBlockHashCount)
 		copy(tmpSet, blockHashSet[nums-maxBlockHashCount:])
 		blockHashSet = tmpSet
 	}

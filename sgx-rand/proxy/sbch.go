@@ -8,11 +8,7 @@ import (
 	"strings"
 )
 
-type res struct {
-	Result string
-}
-
-type hRes struct {
+type blockByNumberRes struct {
 	Result struct {
 		Hash string
 	}
@@ -36,7 +32,7 @@ func getBlockHashByNum(addrs []string, num uint64) string {
 		if len(hashRes) == 0 {
 			continue
 		}
-		var hashR hRes
+		var hashR blockByNumberRes
 		json.Unmarshal([]byte(hashRes), &hashR)
 		return hashR.Result.Hash[2:]
 	}
