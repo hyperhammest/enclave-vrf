@@ -1,4 +1,4 @@
-module github.com/smartbch/sgx-vrf/sgx-rand
+module github.com/smartbch/enclave-vrf/sgx-rand
 
 go 1.17
 

@@ -20,7 +20,7 @@ import (
 	"github.com/edgelesssys/ego/enclave"
 	vrf "github.com/vechain/go-ecvrf"
 
-	"github.com/smartbch/sgx-vrf/sgx-rand/utils"
+	"github.com/smartbch/enclave-vrf/sgx-rand/utils"
 )
 
 // #include "util.h"

@@ -5,13 +5,13 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"time"
 
 	secp256k1 "github.com/btcsuite/btcd/btcec"
 	"github.com/edgelesssys/ego/attestation"
 	"github.com/edgelesssys/ego/eclient"
+
+	"github.com/smartbch/enclave-vrf/sgx-rand/utils"
 )
 
 var signer []byte
@@ -47,7 +47,7 @@ func main() {
 
 	testBlockHashVRF(tlsConfig)
 
-	httpGet(tlsConfig, "https://"+*serverAddr+"/test?t=hello")
+	utils.HttpGet(tlsConfig, "https://"+*serverAddr+"/test?t=hello")
 	fmt.Println("Sent hello over attested TLS channel.")
 }
 
@@ -62,36 +62,16 @@ func testBlockHashVRF(tlsConfig *tls.Config) {
 	//httpGet(tlsConfig, fmt.Sprintf("https://"+*serverAddr+"/secret?s=%s&sig=%s", secret, hex.EncodeToString(sig)))
 
 	blockHash := "01"
-	httpGet(tlsConfig, fmt.Sprintf("https://"+*serverAddr+"/blockhash?b=%s", blockHash))
+	utils.HttpGet(tlsConfig, fmt.Sprintf("https://"+*serverAddr+"/blockhash?b=%s", blockHash))
 
 	time.Sleep(6 * time.Second)
-	res := httpGet(tlsConfig, fmt.Sprintf("https://"+*serverAddr+"/vrf?b=%s", blockHash))
+	res := utils.HttpGet(tlsConfig, fmt.Sprintf("https://"+*serverAddr+"/vrf?b=%s", blockHash))
 	fmt.Printf("vrf result:%s\n", string(res))
 
-	pubkey := httpGet(tlsConfig, fmt.Sprintf("https://"+*serverAddr+"/pubkey"))
+	pubkey := utils.HttpGet(tlsConfig, fmt.Sprintf("https://"+*serverAddr+"/pubkey"))
 	fmt.Printf("vrf result:%s\n", hex.EncodeToString(pubkey))
 }
 
 func verifyReport(report attestation.Report) error {
 	return nil
-}
-
-func httpGet(tlsConfig *tls.Config, url string) []byte {
-	client := http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}
-	resp, err := client.Get(url)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		fmt.Println(resp.Status)
-		return nil
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	return body
 }

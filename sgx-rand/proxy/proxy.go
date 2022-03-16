@@ -13,7 +13,7 @@ import (
 
 	"github.com/edgelesssys/ego/eclient"
 
-	"github.com/smartbch/sgx-vrf/sgx-rand/utils"
+	"github.com/smartbch/enclave-vrf/sgx-rand/utils"
 )
 
 var signer []byte
@@ -280,4 +280,3 @@ func verifyReport(reportBytes, certBytes, signer []byte) error {
 	}
 	return utils.CheckReport(report, certBytes, signer, uniqueID)
 }
-
