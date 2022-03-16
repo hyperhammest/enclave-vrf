@@ -61,7 +61,9 @@ func main() {
 	recoveryPrivateKeyFromFile()
 	go createAndStartHttpsServer()
 	time.Sleep(time.Second)
-	go peerHandshake()
+	if isMaster {
+		go peerHandshake()
+	}
 	select {}
 }
 
@@ -90,18 +92,23 @@ func initConfig() {
 			peerUniqueIDs = append(peerUniqueIDs, id)
 		}
 	}
+	if !isMaster && len(peers) != 0 {
+		panic("slave should has one peer")
+	}
 	if len(peerUniqueIDs) != len(peers) {
 		panic("number of peer not match number of uniqueID")
 	}
-	// get signer command line argument
-	var err error
-	signer, err = hex.DecodeString(*signerArg)
-	if err != nil {
-		panic(err)
-	}
-	if len(signer) == 0 {
-		flag.Usage()
-		return
+	if isMaster {
+		// get signer command line argument
+		var err error
+		signer, err = hex.DecodeString(*signerArg)
+		if err != nil {
+			panic(err)
+		}
+		if len(signer) == 0 {
+			flag.Usage()
+			return
+		}
 	}
 }
 
@@ -146,7 +153,7 @@ func verifyPeerAndSendKey(peerAddress string, uniqID []byte) {
 
 	// Create a TLS config that uses the server certificate as root
 	// CA so that future connections to the server can be verified.
-	if isMaster && len(vrfPubkey) != 0 {
+	if len(vrfPubkey) != 0 {
 		cert, _ := x509.ParseCertificate(certBytes)
 		tlsConfig = &tls.Config{RootCAs: x509.NewCertPool(), ServerName: serverName}
 		tlsConfig.RootCAs.AddCert(cert)
@@ -181,7 +188,7 @@ const intelCPUFreq = 4700_000000
 // todo: modify this when running on SGX2 support enclave
 func getTimestampFromTSC() uint64 {
 	//cycleNumber := uint64(C.TSC())
-	//return cycleNumber * intelCPUFreq
+	//return cycleNumber / intelCPUFreq
 	return uint64(time.Now().Unix())
 }
 
@@ -248,7 +255,7 @@ func initVrfHttpHandlers() {
 		blockHash2Timestamp[blkHash] = getTimestampFromTSC()
 		blockHashSet = append(blockHashSet, blkHash)
 		clearOldBlockHash()
-		fmt.Printf("%v sent block hash %v\n", r.RemoteAddr, r.URL.Query()["b"])
+		fmt.Printf("%v sent block hash to me %v\n", r.RemoteAddr, r.URL.Query()["b"])
 	})
 
 	http.HandleFunc("/vrf", func(w http.ResponseWriter, r *http.Request) {
@@ -328,18 +335,18 @@ func initVrfHttpHandlers() {
 	})
 }
 
-const blockHashEntryMax = 1000_000
+const maxBlockHashCount = 5000
 
 func clearOldBlockHash() {
 	nums := len(blockHashSet)
-	if nums > blockHashEntryMax*1.5 {
-		for _, bh := range blockHashSet[:nums-blockHashEntryMax] {
+	if nums > maxBlockHashCount*1.5 {
+		for _, bh := range blockHashSet[:nums-maxBlockHashCount] {
 			delete(blockHash2Timestamp, bh)
 			delete(blockHash2PI, bh)
 			delete(blockHash2Beta, bh)
 		}
-		var tmpSet = make([]string, nums-blockHashEntryMax)
-		copy(tmpSet, blockHashSet[nums-blockHashEntryMax:])
+		var tmpSet = make([]string, nums-maxBlockHashCount)
+		copy(tmpSet, blockHashSet[nums-maxBlockHashCount:])
 		blockHashSet = tmpSet
 	}
 }
@@ -378,7 +385,7 @@ func generateVRFPrivateKey() {
 }
 
 func sealKeyToFile() {
-	out, err := ecrypto.SealWithProductKey(vrfPrivKey.Serialize(), nil)
+	out, err := ecrypto.SealWithUniqueKey(vrfPrivKey.Serialize(), nil)
 	if err != nil {
 		panic(err)
 	}

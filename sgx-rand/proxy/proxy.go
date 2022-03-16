@@ -42,7 +42,7 @@ var tokenCacheTimestamp int64
 var latestBlockNumber uint64
 
 const serverName = "SGX-VRF-PUBKEY"
-const maxBlockHashCount = 2000_000
+const maxBlockHashCount = 5000
 
 var serverTlsConfig *tls.Config
 
@@ -126,9 +126,7 @@ func getLatest256BlockHash() {
 	if latestBlockNumber != 0 {
 		for i := uint64(1); i <= 256; i++ {
 			hash := getBlockHashByNum(smartBCHAddrList, latestBlockNumber-i)
-			blockHashSet = append(blockHashSet, hash)
-			blockHash2Time[hash] = time.Now().Unix()
-			blockHashCacheWaitingVrf = append(blockHashCacheWaitingVrf, hash)
+			sendBlockHash2SGX(hash)
 		}
 	}
 }

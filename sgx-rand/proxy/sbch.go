@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -16,6 +15,16 @@ type res struct {
 type hRes struct {
 	Result struct {
 		Hash string
+	}
+}
+
+type nodeInfoRes struct {
+	Result struct {
+		NextBlock struct {
+			Number    int    `json:"number"`
+			Timestamp int    `json:"timestamp"`
+			Hash      string `json:"hash"`
+		} `json:"next_block"`
 	}
 }
 
@@ -45,27 +54,15 @@ func getBlockNumAndHash(addrs []string) (uint64, string) {
 }
 
 func getLatestBlockNumAndHash(url string) (uint64, string) {
-	//ReqStrNodeInfo := `{"jsonrpc":"2.0","method":"debug_nodeInfo","params":[],"id":1}`
-	reqStrLatestBlock := `{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}`
-	blockNumberRes := sendRequest(url, reqStrLatestBlock)
-	if blockNumberRes == "" {
+	reqStrNodeInfo := `{"jsonrpc":"2.0","method":"debug_nodeInfo","params":[],"id":1}`
+	infoRes := sendRequest(url, reqStrNodeInfo)
+	if infoRes == "" {
 		return 0, ""
 	}
-	var r res
-	json.Unmarshal([]byte(blockNumberRes), &r)
-	fmt.Println(r.Result)
-	var err error
-	blockNumber, err := strconv.ParseUint(r.Result[2:], 16, 64)
-	if err != nil {
-		panic(err)
-	}
-	reqStrBlockHashByNumber := fmt.Sprintf("{\"jsonrpc\":\"2.0\",\"method\":\"eth_getBlockByNumber\",\"params\":[\"%s\",false],\"id\":1}", r.Result)
-	fmt.Println(reqStrBlockHashByNumber)
-	hashRes := sendRequest(url, reqStrBlockHashByNumber)
-	fmt.Println(hashRes)
-	var hashR hRes
-	json.Unmarshal([]byte(hashRes), &hashR)
-	return blockNumber, hashR.Result.Hash[2:]
+	var info nodeInfoRes
+	json.Unmarshal([]byte(infoRes), &info)
+	fmt.Println(info.Result.NextBlock.Hash)
+	return uint64(info.Result.NextBlock.Number), info.Result.NextBlock.Hash[2:]
 }
 
 func sendRequest(url, bodyStr string) string {
