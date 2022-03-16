@@ -1,6 +1,6 @@
-**sgx-rand is a sgx-enclave app which generate and hold a secret private key using for blockhash vrf generate.**
+**Rand is a sgx-enclave app which generate and hold a secret private key using for blockhash vrf generate.**
 
-sgx-rand export endpoints below:
+rand export endpoints below:
 
 ```
 /pubkey
@@ -11,7 +11,7 @@ sgx-rand export endpoints below:
 /token
 ```
 
-sgx-rand has some flags:
+rand has some flags:
 
 ```
 Usage of ./rand:
@@ -22,9 +22,11 @@ Usage of ./rand:
     	peer address list seperated by comma
   -s string
     	signer ID
+  -u string
+    	peer unique id seperated by comma
 ```
 
-sgx-rand can be master or slave in a cluster, master will generate key and send it to slave. slave receive key from master and store it.
+rand can be master or slave in a cluster, master will generate key and send it to slave. slave receive key from master and store it.
 
 #### setup commands:
 
@@ -48,14 +50,14 @@ modify mounts.source to pwd
 4. setup master first
 
 ```
-nohup ego run rand -m=true -l=0.0.0.0:8081 -p=0.0.0.0:8082,0.0.0.0:8083 -s={signerid} &
+nohup ego run rand -m=true -l=0.0.0.0:8081 -p=0.0.0.0:8082,0.0.0.0:8083 -s={slave_signerid} -u={slave_uniqueid} &
 ```
 
 5. setup slave
 
 ```
-nohup ego run rand -m=false -l=0.0.0.0:8082 -p=0.0.0.0:8081 -s={signerid} &
-nohup ego run rand -m=false -l=0.0.0.0:8083 -p=0.0.0.0:8081 -s={signerid} &
+nohup ego run rand -l=0.0.0.0:8082 &
+nohup ego run rand -l=0.0.0.0:8083 &
 ```
 
 #### Attestation
@@ -64,7 +66,7 @@ rand get report and cert from peer, verify the report through `enclave.VerifyRem
 
 
 
-#### Proxy is a proxy for rand
+## Proxy is a proxy for rand
 
 Build proxy using command
 
@@ -75,7 +77,7 @@ EGOPATH=/snap/ego-dev/current/opt/ego CGO_CFLAGS=-I$EGOPATH/include CGO_LDFLAGS=
 Running proxy using command
 
 ```
-nohup ./proxy -s=[singer_id] -r=[sgx-rand-ur] -l=0.0.0.0:8082
+nohup ./proxy -s=[rand-singer-id] -r=[rand-ur] -l=0.0.0.0:8082 -u=[rand-uniqueid]
 ```
 
 proxy export endpoints below:
@@ -87,4 +89,16 @@ proxy export endpoints below:
 /report
 /token
 ```
+
+
+
+## Design Principle
+
+The master is responsible for generating the vrf private key and passing it to the slaves. so the master must verify the identity of the slave through remote attestation of enclave-sgx. 
+
+The slave doesn't verify master identity, it receive the key and we can verify it by comparing its corresponding public key with the master's.
+
+About remote attestation, we should verify the uniqueID of rand, because It corresponds to the code one-to-one, If the uniqueID in remote report is same with uniqueID which master rand has, then we have reason to believe that the code running in the app is the one that was originally deployed by developer of master.
+
+The proxy keeps grabbing blocks from the smartbch mainnet and send them to the rand. Get the corresponding vrf result from rand later. The user is directly facing the proxy, not rand.
 
