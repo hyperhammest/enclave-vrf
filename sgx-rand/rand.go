@@ -1,23 +1,14 @@
 package main
 
 import (
-	"bytes"
-	"crypto"
 	"crypto/ecdsa"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"math/big"
 	"net/http"
 	"os"
 	"strings"
@@ -28,6 +19,8 @@ import (
 	"github.com/edgelesssys/ego/ecrypto"
 	"github.com/edgelesssys/ego/enclave"
 	vrf "github.com/vechain/go-ecvrf"
+
+	"github.com/smartbch/sgx-vrf/sgx-rand/utils"
 )
 
 // #include "util.h"
@@ -133,8 +126,8 @@ func verifyPeerAndSendKey(peerAddress string, uniqID []byte) {
 	// waiting for peer start
 	for len(certStr) == 0 {
 		fmt.Printf("wating for peer:%s\n", peerAddress)
-		certStr = string(httpGet(tlsConfig, url+"/cert"))
-		reportStr = string(httpGet(tlsConfig, url+"/peer-report"))
+		certStr = string(utils.HttpGet(tlsConfig, url+"/cert"))
+		reportStr = string(utils.HttpGet(tlsConfig, url+"/peer-report"))
 		time.Sleep(5 * time.Second)
 	}
 
@@ -158,7 +151,7 @@ func verifyPeerAndSendKey(peerAddress string, uniqID []byte) {
 		tlsConfig = &tls.Config{RootCAs: x509.NewCertPool(), ServerName: serverName}
 		tlsConfig.RootCAs.AddCert(cert)
 
-		httpGet(tlsConfig, url+fmt.Sprintf("/key?k=%s", hex.EncodeToString(vrfPrivKey.Serialize())))
+		utils.HttpGet(tlsConfig, url+fmt.Sprintf("/key?k=%s", hex.EncodeToString(vrfPrivKey.Serialize())))
 		fmt.Printf("send key to peer:%s passed\n", peerAddress)
 	}
 }
@@ -174,31 +167,12 @@ func generateRandom64Bytes() []byte {
 	return out
 }
 
-func verifyReport(reportBytes, certBytes, signer, uniqID []byte) error {
+func verifyReport(reportBytes, certBytes, signer, uniqueID []byte) error {
 	report, err := enclave.VerifyRemoteReport(reportBytes)
 	if err != nil {
 		return err
 	}
-	hash := sha256.Sum256(certBytes)
-	if !bytes.Equal(report.Data[:len(hash)], hash[:]) {
-		return errors.New("report data does not match the certificate's hash")
-	}
-	if !bytes.Equal(report.UniqueID, uniqID) {
-		return errors.New("invalid unique id")
-	}
-	if report.SecurityVersion < 2 {
-		return errors.New("invalid security version")
-	}
-	if binary.LittleEndian.Uint16(report.ProductID) != 0x001 {
-		return errors.New("invalid product")
-	}
-	if !bytes.Equal(report.SignerID, signer) {
-		return errors.New("invalid signer")
-	}
-	if report.Debug {
-		return errors.New("should not open debug")
-	}
-	return nil
+	return utils.CheckReport(report, certBytes, signer, uniqueID)
 }
 
 // IntelCPUFreq sudo dmidecode -t processor | grep "Speed"
@@ -214,15 +188,7 @@ func getTimestampFromTSC() uint64 {
 func createAndStartHttpsServer() {
 	// Create a TLS config with a self-signed certificate and an embedded report.
 	//tlsCfg, err := enclave.CreateAttestationServerTLSConfig()
-	cert, priv := createCertificate()
-	tlsCfg := tls.Config{
-		Certificates: []tls.Certificate{
-			{
-				Certificate: [][]byte{cert},
-				PrivateKey:  priv,
-			},
-		},
-	}
+	cert, _, tlsCfg := utils.CreateCertificate(serverName)
 	certHash := sha256.Sum256(cert)
 
 	// init handler for remote attestation
@@ -241,18 +207,6 @@ func createAndStartHttpsServer() {
 	fmt.Println("listening ...")
 	err := server.ListenAndServeTLS("", "")
 	fmt.Println(err)
-}
-
-func createCertificate() ([]byte, crypto.PrivateKey) {
-	template := &x509.Certificate{
-		SerialNumber: &big.Int{},
-		Subject:      pkix.Name{CommonName: serverName},
-		NotAfter:     time.Now().Add(10 * 365 * time.Hour), // 10 years
-		DNSNames:     []string{serverName},
-	}
-	priv, _ := rsa.GenerateKey(rand.Reader, 2048)
-	cert, _ := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
-	return cert, priv
 }
 
 func initVrfHttpHandlers() {
@@ -432,24 +386,4 @@ func sealKeyToFile() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func httpGet(tlsConfig *tls.Config, url string) []byte {
-	client := http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}, Timeout: 3 * time.Second}
-	resp, err := client.Get(url)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		fmt.Println(resp.Status)
-		return nil
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	return body
 }
