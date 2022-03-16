@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>SGX-VRF</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.0.0/animate.min.css"/>
+  </head>
+  <body>
+  <section class="section">
+    <h1 class="title">SGX-VRF DApp</h1>
+    <div class="panel is-link">
+      <p class="panel-heading">Current Info</p>
+      <div class="box">     
+        <div class="field">
+          <label class="label">My Address</label>
+          <input class="input" type="text" placeholder="0x" id="myAddr" readonly>
+        </div> 
+        <div class="field">
+          <label class="label">Contract Address</label>
+          <input class="input" type="text" placeholder="0x" id="govAddr" readonly>
+        </div> 
+        <div class="field">
+          <label class="label">Current PubKey</label>
+          <input class="input" type="text" placeholder="0x" id="currPubKey" readonly>
+        </div>
+        <div class="field">
+          <label class="label">Current Operators</label>
+          <textarea class="textarea" rows="3" placeholder="0x" readonly id="currOps"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel is-link">
+      <p class="panel-heading">Pending Proposals</p>
+      <div class="box">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th><th>Type</th><th>Proposer</th><th>Content</th><th>Votes</th>
+            </tr>
+          </thead>
+          <tbody id="proposals">
+            <tr>
+              <td>1</td><td>PubKey</td><td>0x1234</td><td>0x5678</td><td>10101</td>
+            </tr>
+            <tr>
+              <td>2</td><td>PubKey</td><td>0x1234</td><td>0x5678</td><td>10101</td>
+            </tr>
+            <tr>
+              <td>2</td><td>PubKey</td><td>0x1234</td><td>0x5678</td><td>10101</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel is-link">
+      <p class="panel-heading">Submit Proposal</p>
+      <div class="box">
+        <div class="field">
+          <label class="label">Type</label>
+          <div class="control">
+            <div class="select">
+              <select id="newProposalType">
+                <option>PubKey</option>
+                <option>Operators</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Content</label>
+          <div class="control">
+            <textarea class="textarea" id="newProposalContent" placeholder="0x"></textarea>
+          </div>
+        </div>
+        <div class="control">
+          <button class="button is-link" id="submitProposalBtn">Submit</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel is-link">
+      <p class="panel-heading">Vote Proposal</p>
+      <div class="box">
+        <div class="field">
+          <label class="label">ID</label>
+          <div class="control">
+            <input class="input" type="text" id="voteProposalId" placeholder="123">
+          </div>
+        </div>
+        <div class="field">
+          <label class="checkbox">Agreed</label>
+          <input type="checkbox" id="voteAgreed">
+        </div>
+        <div class="control">
+          <button class="button is-link" id="voteProposalBtn">Vote</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel is-link">
+      <p class="panel-heading">Execute Proposal</p>
+      <div class="box">
+        <div class="field">
+          <label class="label">ID</label>
+          <div class="control">
+            <input class="input" type="text" id="execProposalId" placeholder="123">
+          </div>
+        </div>
+        <div class="control">
+          <button class="button is-link" id="execProposalBtn">Execute</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel is-link">
+      <p class="panel-heading">Verify</p>
+      <div class="box">
+        <div class="field">
+          <label class="label">alpha (Block Hash)</label>
+          <div class="control">
+            <input class="input" type="text" id="verifyBlockHash" placeholder="0x1234567890123456789012345678901234567890123456789012345678901234">
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">beta (VRF Random)</label>
+          <div class="control">
+            <input class="input" type="text" id="verifyRandom" placeholder="0x1234567890123456789012345678901234567890123456789012345678901234">
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">pi (Proof)</label>
+          <div class="control">
+            <input class="input" type="text" id="verifyPi" placeholder="0x">
+          </div>
+        </div>
+        <div class="control">
+          <button class="button is-link" id="verify">Verify</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+  <script type="module">
+    import { ethers } from "./ethers-5.4.esm.min.js";
+    import u from './umbrella-3.3.0.esm.js';
+    import { toast } from './bulma-toast.esm.js';
+
+
+    // A Web3Provider wraps a standard Web3 provider, which is
+    // what MetaMask injects as window.ethereum into each page
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
+
+    // MetaMask requires requesting permission to connect users accounts
+    await provider.send("eth_requestAccounts", []);
+
+    // The MetaMask plugin also allows signing transactions to
+    // send ether and pay to change state within the blockchain.
+    // For this, you need the account signer...
+    const signer = provider.getSigner();
+    const myAddr = await signer.getAddress();
+
+    const govAddr = '0xc00eccdFFcc0CCe32E62c6124601024c1d3b7988';
+    const govABI = [
+      `function pubKey() public view returns (bytes memory)`,
+      `function minProposalId() public view returns (uint256)`,
+      `function getAllOperators() public view returns (address[])`,
+      `function getProposal(uint256) public view returns (address, address[], bytes, uint256)`,
+      `function proposeNewOperators(address[]) public`,
+      `function proposeNewPubKey(bytes) public`,
+      `function voteProposal(uint256, bool) public`,
+      `function execProposal(uint256) public`,
+      `function verify(uint, uint, bytes) public view returns (bool)`,
+    ];
+
+    const gov = new ethers.Contract(govAddr, govABI, provider);
+
+    u('#myAddr').first().value = myAddr;
+    u('#govAddr').first().value = govAddr;
+
+    gov.pubKey()
+      .then(pubKey => u('#currPubKey').first().value = pubKey)
+      .catch(err => console.log('can not get pubkey!', err));
+
+    gov.getAllOperators()
+      .then(ops => u('#currOps').text(ops.join('\n')))
+      .catch(err => console.log('can not get ops!', err));
+
+    getAllProposals(gov).then(proposals => {
+      console.log('proposals:', proposals);
+      u('#proposals').empty();
+      for (let p of proposals) {
+        let votes = p.votes.split("").reverse().join("")
+          .replaceAll('1', '✅')
+          .replaceAll('0', '❓') + '...';
+        let type, abbr, full;
+        if (p.newOps.length > 0) {
+          type = 'Operators';
+          abbr = p.newOps.length.toString();
+          full = p.newOps.join('\n');
+        } else {
+          type = 'PubKey';
+          abbr = p.newPubKey.substring(0, 10) + '...';
+          full = p.newPubKey;
+        }
+        u('#proposals').append(`
+<tr>
+  <td>${p.id}</td>
+  <td>${type}</td>
+  <td>${p.proposer}</td>
+  <td><abbr title="${full}">${abbr}</abbr></td>
+  <td>${votes}</td>
+</tr>`)
+      }
+    }).catch(err => console.log('can not get proposals!', err));
+
+    u('#newProposalType').handle('change', e => {
+      const hint = e.target.value == 'Operators'
+        ? '0x<addr1>\n0x<addr2>\n...' 
+        : '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef33';
+      u('#newProposalContent').first().placeholder = hint;
+    });
+    u('#newProposalType').trigger('change');
+
+    u('#submitProposalBtn').handle('click', async (e) => {
+      const proposalType = u('#newProposalType').first().value;
+      const pubKeyOrOps = u('#newProposalContent').first().value;
+      console.log(proposalType, pubKeyOrOps);
+      if (proposalType == 'Operators') {
+        const newOps = pubKeyOrOps.split('\n');
+        console.log('propose new ops:', newOps);
+        await gov.connect(signer).proposeNewOperators(newOps);
+      } else {
+        console.log('propose new pubkey:', pubKeyOrOps);
+        await gov.connect(signer).proposeNewPubKey(pubKeyOrOps);
+      }
+    });
+
+    u('#voteProposalBtn').handle('click', async (e) => {
+      const id = u('#voteProposalId').first().value;
+      const agreed = u('#voteAgreed').first().checked;
+      console.log('vote proposal:', id, agreed);
+      await gov.connect(signer).voteProposal(id, agreed);
+    });
+
+    u('#execProposalBtn').handle('click', async (e) => {
+      const id = u('#execProposalId').first().value;
+      console.log('exec proposal:', id);
+
+      gov.connect(signer).execProposal(id).catch(err => showErr(err));
+    });
+
+    u('#verify').handle('click', async (e) => {
+      const alpha = u('#verifyBlockHash').first().value;
+      const beta = u('#verifyRandom').first().value;
+      const pi = u('#verifyPi').first().value;
+      // console.log('verify:', alpha, beta, pi);
+
+      gov.connect(signer).verify(alpha, beta, pi)
+        .then(x => showMsg(x))
+        .catch(err => showErr(err));
+    });
+
+    async function getAllProposals(gov) {
+      const proposals = [];
+      for (let i = 0; ; i++) {
+        try {
+          proposals.push(await getProposal(gov, i));
+        } catch (err) {
+          // console.log(err);
+          break;
+        }
+      }
+      return proposals;
+    }
+    async function getProposal(gov, id) {
+      let [proposer, newOps, newPubKey, votes] = await gov.getProposal(id);
+      votes = BigInt(votes.toString()).toString(2);
+      return { id, proposer, newOps, newPubKey, votes };
+    }
+
+    function showErr(err) {
+      toast({
+        message: '<code>' + JSON.stringify(err).replaceAll('\n', '<br/>') + '</code>',
+        type: 'is-warning',
+        dismissible: true,
+        duration: 10000,
+        // animate: { in: 'fadeIn', out: 'fadeOut' },
+      });
+    }
+
+    function showMsg(msg) {
+      toast({
+        message: msg.toString(),
+        type: 'is-info',
+        dismissible: true,
+        duration: 2000,
+        // animate: { in: 'fadeIn', out: 'fadeOut' },
+      });
+    }
+
+  </script>
+  </body>
+</html>

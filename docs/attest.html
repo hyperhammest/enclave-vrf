@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>SGX-VRF</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.0.0/animate.min.css"/>
+  </head>
+  <body>
+  <section class="section">
+    <h1 class="title">SGX-VRF Server Attestation</h1>
+    <div class="panel is-link">
+      <p class="panel-heading">Attestation</p>
+      <div class="box">
+        <div class="field">
+          <label class="label">JWKS</label>
+          <div class="notification">
+            get JWKS from one of 
+            <a href="https://docs.microsoft.com/en-us/azure/attestation/basic-concepts#regional-shared-provider">providers</a>
+            like 
+            <a href="https://sharedeus.eus.attest.azure.net/certs">this</a> 
+          </div>
+          <textarea class="textarea" rows="5" placeholder='{ "keys": [ ... ] }' id="jwks"></textarea>
+        </div>
+
+        <div class="field">
+          <label class="label">JWT</label>
+          <div class="notification">
+            get JWT from SGX-VRF server like 
+            <a href="https://20.39.34.190:8081/token">this</a> 
+          </div>
+          <textarea class="textarea" rows="5" placeholder="header.payload.signature" id="jwt"></textarea>
+        </div>
+        <br/>
+
+        <div class="control">
+          <button class="button is-link" id="decodeBtn">Decode JWT</button>
+          <button class="button is-link" id="verifyBtn">Verify JWT</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel is-link">
+      <p class="panel-heading">Decoded JWT</p>
+      <div class="box">
+        <div class="field">
+          <label class="label">Header</label>
+          <textarea class="textarea" rows="1" id="jwtHeader" readonly></textarea>
+        </div>
+        <div class="field">
+          <label class="label">Payload</label>
+          <textarea class="textarea" rows="3" id="jwtPayload" readonly></textarea>
+        </div>
+        <div class="field">
+          <label class="label">Signature</label>
+          <textarea class="textarea" rows="3" id="jwtSig" readonly></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel is-link">
+      <p class="panel-heading">JWT Verification</p>
+      <div class="box">
+        <div class="field">
+          <label class="label">Result</label>
+          <textarea class="textarea" rows="8" id="verifyResult" readonly></textarea>
+        </div>
+        <div class="field">
+          <label class="label">Data</label>
+          <textarea class="textarea" rows="1" id="sgxEHD" readonly></textarea>
+        </div>
+        <div class="field">
+          <label class="label">SecurityVersion</label>
+          <input class="input" type="text" id="sgxSVN" readonly>
+        </div>
+        <div class="field">
+          <label class="label">Debug</label>
+          <input class="input" type="text" id="sgxDbg" readonly>
+        </div>
+        <div class="field">
+          <label class="label">UniqueID</label>
+          <input class="input" type="text" id="sgxMrenclave" readonly>
+        </div>
+        <div class="field">
+          <label class="label">SignerID</label>
+          <input class="input" type="text" id="sgxMrsigner" readonly>
+        </div>
+        <div class="field">
+          <label class="label">ProductID</label>
+          <input class="input" type="text" id="sgxProdId" readonly>
+        </div>
+        <div class="field">
+          <label class="label">Issued At</label>
+          <input class="input" type="text" id="jwtIat" readonly>
+        </div>
+        <div class="field">
+          <label class="label">Expiration Time</label>
+          <input class="input" type="text" id="jwtExp" readonly>
+        </div>
+      </div>
+    </div>
+  </section>
+  <script src="./attest.js"></script>
+  <script src="./base64.js"></script>
+  <script type="module">
+    import u from './umbrella-3.3.0.esm.js';
+    // import { sgx } from './attest.js';
+    // alert(sgx.verifyJTW)
+
+    u('#decodeBtn').handle('click', async (e) => {
+      const jwt = u('#jwt').first().value;
+      const [header, payload, sig] = jwt.split('.');
+
+      u('#jwtHeader').first().value = b64ToASCII(header);
+      u('#jwtPayload').first().value = b64ToASCII(payload);
+      u('#jwtSig').first().value = b64ToHex(sig);
+    });
+
+    u('#verifyBtn').handle('click', async (e) => {
+      const jwks = u('#jwks').first().value;
+      const jwt = u('#jwt').first().value;
+      // console.log(jwks)
+      // console.log(jwt)
+
+      const result = await sgx.verifyJTW(JSON.parse(jwks), jwt);
+      console.log(result);
+      u('#verifyResult').first().value = JSON.stringify(result);
+
+      // atob(x.replaceAll('-', '+').replaceAll('_', '/'))
+      const ehdB64 = result.payload['x-ms-sgx-ehd'];
+      const ehdHex = b64ToHex(ehdB64);
+
+      u('#sgxEHD').first().value = ehdHex;
+      u('#sgxSVN').first().value = result.payload['x-ms-sgx-svn'];
+      u('#sgxDbg').first().value = result.payload['x-ms-sgx-is-debuggable'];
+      u('#sgxMrenclave').first().value = result.payload['x-ms-sgx-mrenclave'];
+      u('#sgxMrsigner').first().value = result.payload['x-ms-sgx-mrsigner'];
+      u('#sgxProdId').first().value = result.payload['x-ms-sgx-product-id'];
+      u('#jwtIat').first().value = new Date(result.payload.iat * 1000);
+      u('#jwtExp').first().value = new Date(result.payload.exp * 1000);
+    });
+
+    function b64ToASCII(b64) {
+      return atob(b64.replaceAll('-', '+').replaceAll('_', '/'));
+    }
+    function b64ToHex(b64) {
+      return buf2hex(base64DecToArr(b64.replaceAll('-', '+').replaceAll('_', '/')))
+    }
+  </script>
+  </body>
+</html>

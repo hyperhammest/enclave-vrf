@@ -1,0 +1,19 @@
+{
+  "exe": "rand",
+  "key": "private.pem",
+  "debug": false,
+  "heapSize": 512,
+  "executableHeap": false,
+  "productID": 1,
+  "securityVersion": 3,
+  "mounts": [
+    {
+      "source": "/home/azureuser/bear/keystore",
+      "target": "/data",
+      "type": "hostfs",
+      "readOnly": false
+    }
+  ],
+  "env": null,
+  "files": null
+}
