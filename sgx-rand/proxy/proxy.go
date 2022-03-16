@@ -34,6 +34,7 @@ var blockHash2VrfResult = make(map[string]string)
 var blockHashCacheWaitingVrf []string
 
 var report []byte
+var reportCacheTimestamp int64
 
 var cert []byte
 var token []byte
@@ -203,10 +204,12 @@ func initVrfHttpHandlers() {
 		return
 	})
 
-	// remote report always same
+	// remote report not same
 	http.HandleFunc("/report", func(w http.ResponseWriter, r *http.Request) {
-		if len(report) == 0 {
+		now := time.Now().Unix()
+		if len(report) == 0 || now > reportCacheTimestamp+5 {
 			report = utils.HttpGet(serverTlsConfig, "https://"+*serverAddr+"/report")
+			reportCacheTimestamp = now
 		}
 		if len(report) != 0 {
 			w.Write(report)
