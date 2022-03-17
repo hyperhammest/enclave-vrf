@@ -3,9 +3,11 @@ package utils
 import (
 	"bytes"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
-
+	"fmt"
 	"github.com/edgelesssys/ego/attestation"
 )
 
@@ -30,4 +32,32 @@ func CheckReport(report attestation.Report, certBytes, signer, uniqueID []byte) 
 		return errors.New("should not open debug")
 	}
 	return nil
+}
+
+func VerifySever(address string, signer, uniqueID []byte, verifyReport func(reportBytes, certBytes, signer, uniqueID []byte) error) []byte {
+	url := "https://" + address
+	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+
+	var certStr string
+	var reportStr string
+	var certBytes []byte
+	var reportBytes []byte
+	var err error
+
+	certStr = string(HttpGet(tlsConfig, url+"/cert"))
+	reportStr = string(HttpGet(tlsConfig, url+"/peer-report"))
+
+	certBytes, err = hex.DecodeString(certStr)
+	if err != nil {
+		panic(err)
+	}
+	reportBytes, err = hex.DecodeString(reportStr)
+	if err != nil {
+		panic(err)
+	}
+	if err := verifyReport(reportBytes, certBytes, signer, uniqueID); err != nil {
+		panic(err)
+	}
+	fmt.Printf("verify server:%s passed\n", address)
+	return certBytes
 }

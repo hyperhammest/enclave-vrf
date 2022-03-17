@@ -119,8 +119,7 @@ func slaveHandshake() {
 }
 
 func verifySlaveAndSendKey(slaveAddress string, uniqID []byte) {
-	url := "https://" + slaveAddress
-	certBytes := verifySlave(slaveAddress, url, uniqID)
+	certBytes := utils.VerifySever(slaveAddress, signer, uniqID, verifyReport)
 
 	// Create a TLS config that uses the server certificate as root
 	// CA so that future connections to the server can be verified.
@@ -129,38 +128,9 @@ func verifySlaveAndSendKey(slaveAddress string, uniqID []byte) {
 		tlsConfig := &tls.Config{RootCAs: x509.NewCertPool(), ServerName: serverName}
 		tlsConfig.RootCAs.AddCert(cert)
 
-		utils.HttpGet(tlsConfig, url+fmt.Sprintf("/key?k=%s", hex.EncodeToString(vrfPrivKey.Serialize())))
+		utils.HttpGet(tlsConfig, "https://"+slaveAddress+fmt.Sprintf("/key?k=%s", hex.EncodeToString(vrfPrivKey.Serialize())))
 		fmt.Printf("send key to slave:%s passed\n", slaveAddress)
 	}
-}
-
-func verifySlave(slaveAddress, url string, uniqID []byte) []byte {
-	// Get server certificate and its report. Skip TLS certificate verification because
-	// the certificate is self-signed and we will verify it using the report instead.
-	tlsConfig := &tls.Config{InsecureSkipVerify: true}
-
-	var certStr string
-	var reportStr string
-	var certBytes []byte
-	var reportBytes []byte
-	var err error
-	// start slave first
-	certStr = string(utils.HttpGet(tlsConfig, url+"/cert"))
-	reportStr = string(utils.HttpGet(tlsConfig, url+"/peer-report"))
-
-	certBytes, err = hex.DecodeString(certStr)
-	if err != nil {
-		panic(err)
-	}
-	reportBytes, err = hex.DecodeString(reportStr)
-	if err != nil {
-		panic(err)
-	}
-	if err := verifyReport(reportBytes, certBytes, signer, uniqID); err != nil {
-		panic(err)
-	}
-	fmt.Printf("verify slave:%s passed\n", slaveAddress)
-	return certBytes
 }
 
 func generateRandom64Bytes() []byte {

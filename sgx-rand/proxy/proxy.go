@@ -16,8 +16,6 @@ import (
 	"github.com/smartbch/enclave-vrf/sgx-rand/utils"
 )
 
-var signer []byte
-var uniqueID []byte
 var listenURL *string
 var serverAddr *string
 
@@ -56,8 +54,7 @@ func main() {
 	flag.Parse()
 
 	// get signer command line argument
-	var err error
-	signer, err = hex.DecodeString(*signerArg)
+	signer, err := hex.DecodeString(*signerArg)
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +62,7 @@ func main() {
 		flag.Usage()
 		return
 	}
-	uniqueID, err = hex.DecodeString(*uniqueIDArd)
+	uniqueID, err := hex.DecodeString(*uniqueIDArd)
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +72,7 @@ func main() {
 	}
 	parseSmartBchAddressList(*smartBCHAddrListArg)
 
-	getBlockHashAndVRFsAndClearOldData()
+	getBlockHashAndVRFsAndClearOldData(signer, uniqueID)
 
 	_, _, tlsCfg := utils.CreateCertificate(serverName)
 
@@ -94,8 +91,8 @@ func parseSmartBchAddressList(list string) {
 	}
 }
 
-func getBlockHashAndVRFsAndClearOldData() {
-	verifyServer(*serverAddr)
+func getBlockHashAndVRFsAndClearOldData(signer, uniqueID []byte) {
+	verifyServerAndGetCert(*serverAddr, signer, uniqueID)
 	go func() {
 		for {
 			blockHashConsume()
@@ -241,40 +238,14 @@ func initVrfHttpHandlers() {
 	})
 }
 
-func verifyServer(peerAddress string) {
-	url := "https://" + peerAddress
-
-	tlsConfig := &tls.Config{InsecureSkipVerify: true}
-
-	var certStr string
-	var reportStr string
-	var certBytes []byte
-	var reportBytes []byte
-	var err error
-
-	certStr = string(utils.HttpGet(tlsConfig, url+"/cert"))
-	reportStr = string(utils.HttpGet(tlsConfig, url+"/peer-report"))
-	time.Sleep(5 * time.Second)
-
-	certBytes, err = hex.DecodeString(certStr)
-	if err != nil {
-		panic(err)
-	}
-	reportBytes, err = hex.DecodeString(reportStr)
-	if err != nil {
-		panic(err)
-	}
-	if err := verifyReport(reportBytes, certBytes, signer); err != nil {
-		panic(err)
-	}
-	fmt.Printf("verify peer:%s passed\n", peerAddress)
-
+func verifyServerAndGetCert(address string, signer, uniqueID []byte) {
+	certBytes := utils.VerifySever(address, signer, uniqueID, verifyReport)
 	cert, _ := x509.ParseCertificate(certBytes)
 	serverTlsConfig = &tls.Config{RootCAs: x509.NewCertPool(), ServerName: serverName}
 	serverTlsConfig.RootCAs.AddCert(cert)
 }
 
-func verifyReport(reportBytes, certBytes, signer []byte) error {
+func verifyReport(reportBytes, certBytes, signer, uniqueID []byte) error {
 	report, err := eclient.VerifyRemoteReport(reportBytes)
 	if err != nil {
 		return err
