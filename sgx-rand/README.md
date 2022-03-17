@@ -102,3 +102,29 @@ About remote attestation, we should verify the uniqueID of rand, because It corr
 
 The proxy keeps grabbing blocks from the smartbch mainnet and send them to the rand. Get the corresponding vrf result from rand later. The user is directly facing the proxy, not rand.
 
+```
+-----> means https connection after remote enclave attestation
+~~~~~> means normal http(s) connection
+
+                                           ___________
+                                          /  enclave  \
+                  +-------+  block hash  +-------------+
+                  | proxy |------------->| rand master | send key once
+                  |       |------------->|  (vrf key)  |-------+
+                  +-------+   get vrf    +-------------+       |
+                                                               |
+                                           ___________         |
+           get                            /  enclave  \        |
++------+  block   +-------+  block hash  +-------------+       |
+| sbch |   hash   | proxy |------------->| rand slave  |<------+
+| node |<~~~~~~~~~|       |------------->|  (vrf key)  |       |
++------+          +-------+   get vrf    +-------------+       |
+                                                               |
+                                           ___________         |
+                                          /  enclave  \        |
++------+          +-------+  block hash  +-------------+       |
+|client| get vrf  | proxy |------------->| rand slave  |<------+
+|      |~~~~~~~~~>|       |------------->|  (vrf key)  |
++------+          +-------+   get vrf    +-------------+
+
+```
