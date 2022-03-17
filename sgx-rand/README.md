@@ -19,11 +19,11 @@ Usage of ./rand:
     	listen address (default "0.0.0.0:8081")
   -m	is master or not
   -p string
-    	peer address list seperated by comma
+    	slave address list seperated by comma
   -s string
     	signer ID
   -u string
-    	peer unique id seperated by comma
+    	slave unique id seperated by comma
 ```
 
 rand can be master or slave in a cluster, master will generate key and send it to slave. slave receive key from master and store it.
@@ -47,17 +47,17 @@ modify mounts.source to pwd
 
 3. get signerid with `ego signerid rand`
 
-4. setup master first
+4. setup slave first
+
+   ```
+   nohup ego run rand -l=0.0.0.0:8082 &
+   nohup ego run rand -l=0.0.0.0:8083 &
+   ```
+
+5. setup master
 
 ```
 nohup ego run rand -m=true -l=0.0.0.0:8081 -p=0.0.0.0:8082,0.0.0.0:8083 -s={slave_signerid} -u={slave_uniqueid} &
-```
-
-5. setup slave
-
-```
-nohup ego run rand -l=0.0.0.0:8082 &
-nohup ego run rand -l=0.0.0.0:8083 &
 ```
 
 #### Attestation
@@ -71,13 +71,13 @@ rand get report and cert from peer, verify the report through `enclave.VerifyRem
 Build proxy using command
 
 ```
-EGOPATH=/snap/ego-dev/current/opt/ego CGO_CFLAGS=-I$EGOPATH/include CGO_LDFLAGS=-L$EGOPATH/lib go build  proxy.go
+EGOPATH=/snap/ego-dev/current/opt/ego CGO_CFLAGS=-I$EGOPATH/include CGO_LDFLAGS=-L$EGOPATH/lib go build ./...
 ```
 
 Running proxy using command
 
 ```
-nohup ./proxy -s=[rand-singer-id] -r=[rand-ur] -l=0.0.0.0:8082 -u=[rand-uniqueid]
+nohup ./proxy -s=[rand-singer-id] -r=[rand-ur] -l=0.0.0.0:8084 -u=[rand-uniqueid]
 ```
 
 proxy export endpoints below:

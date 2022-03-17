@@ -113,7 +113,7 @@ func getBlockHashAndVRFsAndClearOldData() {
 					delete(blockHash2VrfResult, hash)
 					vrfLock.Unlock()
 				}
-				var tmpSet = make([]string, len(blockHashSet)-maxBlockHashCount)
+				var tmpSet = make([]string, maxBlockHashCount)
 				copy(tmpSet, blockHashSet[len(blockHashSet)-maxBlockHashCount:])
 				blockHashSet = tmpSet
 			}

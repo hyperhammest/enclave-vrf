@@ -32,8 +32,8 @@ type vrfResult struct {
 }
 
 var listenURL string
-var peers []string
-var peerUniqueIDs [][]byte
+var slaves []string
+var slaveUniqueIDs [][]byte
 var vrfPubkey []byte //compressed pubkey
 var vrfPrivKey *secp256k1.PrivateKey
 
@@ -62,7 +62,7 @@ func main() {
 	go createAndStartHttpsServer()
 	time.Sleep(time.Second)
 	if isMaster {
-		go peerHandshake()
+		go slaveHandshake()
 	}
 	select {}
 }
@@ -71,32 +71,32 @@ func initConfig() {
 	isMasterP := flag.Bool("m", false, "is master or not")
 	listenURLP := flag.String("l", "0.0.0.0:8081", "listen address")
 	signerArg := flag.String("s", "", "signer ID")
-	peerString := flag.String("p", "", "peer address list seperated by comma")
-	peerUniqIDArgs := flag.String("u", "", "peer unique id seperated by comma")
+	slaveString := flag.String("p", "", "slave address list seperated by comma")
+	slaveUniqIDArgs := flag.String("u", "", "slave unique id seperated by comma")
 	flag.Parse()
 	isMaster = *isMasterP
 	listenURL = *listenURLP
 	fmt.Println(isMaster)
 	fmt.Println(listenURL)
-	// get peers
-	if *peerString != "" {
-		peers = strings.Split(*peerString, ",")
+	// get slaves
+	if *slaveString != "" {
+		slaves = strings.Split(*slaveString, ",")
 	}
-	if *peerUniqIDArgs != "" {
-		peerUniqueIDStrings := strings.Split(*peerUniqIDArgs, ",")
-		for _, str := range peerUniqueIDStrings {
+	if *slaveUniqIDArgs != "" {
+		slaveUniqueIDStrings := strings.Split(*slaveUniqIDArgs, ",")
+		for _, str := range slaveUniqueIDStrings {
 			id, err := hex.DecodeString(str)
 			if err != nil {
 				panic(err)
 			}
-			peerUniqueIDs = append(peerUniqueIDs, id)
+			slaveUniqueIDs = append(slaveUniqueIDs, id)
 		}
 	}
-	if !isMaster && len(peers) != 0 {
-		panic("slave should has one peer")
+	if !isMaster && len(slaves) != 0 {
+		panic("slave should has no slaves")
 	}
-	if len(peerUniqueIDs) != len(peers) {
-		panic("number of peer not match number of uniqueID")
+	if len(slaveUniqueIDs) != len(slaves) {
+		panic("number of slave address not match number of slave uniqueID")
 	}
 	if isMaster {
 		// get signer command line argument
@@ -112,15 +112,29 @@ func initConfig() {
 	}
 }
 
-func peerHandshake() {
-	for i, peer := range peers {
-		verifyPeerAndSendKey(peer, peerUniqueIDs[i])
+func slaveHandshake() {
+	for i, slave := range slaves {
+		verifySlaveAndSendKey(slave, slaveUniqueIDs[i])
 	}
 }
 
-func verifyPeerAndSendKey(peerAddress string, uniqID []byte) {
-	url := "https://" + peerAddress
+func verifySlaveAndSendKey(slaveAddress string, uniqID []byte) {
+	url := "https://" + slaveAddress
+	certBytes := verifySlave(slaveAddress, url, uniqID)
 
+	// Create a TLS config that uses the server certificate as root
+	// CA so that future connections to the server can be verified.
+	if len(vrfPubkey) != 0 {
+		cert, _ := x509.ParseCertificate(certBytes)
+		tlsConfig := &tls.Config{RootCAs: x509.NewCertPool(), ServerName: serverName}
+		tlsConfig.RootCAs.AddCert(cert)
+
+		utils.HttpGet(tlsConfig, url+fmt.Sprintf("/key?k=%s", hex.EncodeToString(vrfPrivKey.Serialize())))
+		fmt.Printf("send key to slave:%s passed\n", slaveAddress)
+	}
+}
+
+func verifySlave(slaveAddress, url string, uniqID []byte) []byte {
 	// Get server certificate and its report. Skip TLS certificate verification because
 	// the certificate is self-signed and we will verify it using the report instead.
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
@@ -130,13 +144,9 @@ func verifyPeerAndSendKey(peerAddress string, uniqID []byte) {
 	var certBytes []byte
 	var reportBytes []byte
 	var err error
-	// waiting for peer start
-	for len(certStr) == 0 {
-		fmt.Printf("wating for peer:%s\n", peerAddress)
-		certStr = string(utils.HttpGet(tlsConfig, url+"/cert"))
-		reportStr = string(utils.HttpGet(tlsConfig, url+"/peer-report"))
-		time.Sleep(5 * time.Second)
-	}
+	// start slave first
+	certStr = string(utils.HttpGet(tlsConfig, url+"/cert"))
+	reportStr = string(utils.HttpGet(tlsConfig, url+"/peer-report"))
 
 	certBytes, err = hex.DecodeString(certStr)
 	if err != nil {
@@ -149,18 +159,8 @@ func verifyPeerAndSendKey(peerAddress string, uniqID []byte) {
 	if err := verifyReport(reportBytes, certBytes, signer, uniqID); err != nil {
 		panic(err)
 	}
-	fmt.Printf("verify peer:%s passed\n", peerAddress)
-
-	// Create a TLS config that uses the server certificate as root
-	// CA so that future connections to the server can be verified.
-	if len(vrfPubkey) != 0 {
-		cert, _ := x509.ParseCertificate(certBytes)
-		tlsConfig = &tls.Config{RootCAs: x509.NewCertPool(), ServerName: serverName}
-		tlsConfig.RootCAs.AddCert(cert)
-
-		utils.HttpGet(tlsConfig, url+fmt.Sprintf("/key?k=%s", hex.EncodeToString(vrfPrivKey.Serialize())))
-		fmt.Printf("send key to peer:%s passed\n", peerAddress)
-	}
+	fmt.Printf("verify slave:%s passed\n", slaveAddress)
+	return certBytes
 }
 
 func generateRandom64Bytes() []byte {
