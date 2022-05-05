@@ -55,8 +55,6 @@ const attestationProviderURL = "https://shareduks.uks.attest.azure.net"
 // master must be sure slave is our own enclave app
 // slave no need to be sure master is enclave app because the same vrf pubkey provided by all slave and master owned, it can check outside.
 func main() {
-	now := getTimestampFromTSC()
-	fmt.Println(now)
 	initConfig()
 	recoveryPrivateKeyFromFile()
 	go createAndStartHttpsServer()
@@ -153,13 +151,13 @@ func verifyReport(reportBytes, certBytes, signer, uniqueID []byte) error {
 }
 
 // IntelCPUFreq sudo dmidecode -t processor | grep "Speed"
-const intelCPUFreq = 4700_000000
+const intelCPUFreq = 2800_000000
 
 // todo: modify this when running on SGX2 support enclave
 func getTimestampFromTSC() uint64 {
-	//cycleNumber := uint64(C.TSC())
-	//return cycleNumber / intelCPUFreq
-	return uint64(time.Now().Unix())
+	cycleNumber := uint64(C.get_tsc())
+	return cycleNumber / intelCPUFreq
+	//return uint64(time.Now().Unix())
 }
 
 func createAndStartHttpsServer() {
@@ -210,6 +208,7 @@ func initVrfHttpHandlers() {
 		defer lock.Unlock()
 
 		if blockHash2Timestamp[blkHash] != 0 {
+			w.Write([]byte("this blockhash already here"))
 			return
 		}
 		hashBytes, err := hex.DecodeString(blkHash)
@@ -218,6 +217,8 @@ func initVrfHttpHandlers() {
 		}
 		beta, pi, err := vrf.NewSecp256k1Sha256Tai().Prove((*ecdsa.PrivateKey)(vrfPrivKey), hashBytes)
 		if err != nil {
+			fmt.Printf("do vrf failed: %s\n", err.Error())
+			w.Write([]byte(err.Error()))
 			return
 		}
 		blockHash2Beta[blkHash] = beta
@@ -240,9 +241,11 @@ func initVrfHttpHandlers() {
 
 		vrfTimestamp := blockHash2Timestamp[blkHash]
 		if vrfTimestamp == 0 {
+			w.Write([]byte("not has this blockhash"))
 			return
 		}
 		if vrfTimestamp+5 > getTimestampFromTSC() {
+			w.Write([]byte("please get vrf later, the blockhash not mature"))
 			return
 		}
 		res := vrfResult{
@@ -256,7 +259,7 @@ func initVrfHttpHandlers() {
 
 	if !isMaster {
 		http.HandleFunc("/key", func(w http.ResponseWriter, r *http.Request) {
-			fmt.Printf("%v sent key to me %v\n", r.RemoteAddr, r.URL.Query()["k"])
+			fmt.Printf("%v sent key to me\n", r.RemoteAddr)
 			if len(vrfPubkey) != 0 {
 				return
 			}
@@ -272,9 +275,6 @@ func initVrfHttpHandlers() {
 			priv, pubkey := secp256k1.PrivKeyFromBytes(secp256k1.S256(), keyBytes)
 			vrfPrivKey = priv
 			vrfPubkey = pubkey.SerializeCompressed()
-
-			fmt.Printf("enclave vrf private key from master:%s\n", hex.EncodeToString(vrfPrivKey.Serialize()))
-			fmt.Printf("enclave vrf pubkey key from master:%s\n", hex.EncodeToString(vrfPubkey))
 			sealKeyToFile()
 			return
 		})
@@ -287,6 +287,7 @@ func initVrfHttpHandlers() {
 		hash := sha256.Sum256(vrfPubkey)
 		report, err := enclave.GetRemoteReport(hash[:])
 		if err != nil {
+			w.Write([]byte(err.Error()))
 			return
 		}
 		w.Write([]byte(hex.EncodeToString(report)))
@@ -299,6 +300,7 @@ func initVrfHttpHandlers() {
 		}
 		token, err := enclave.CreateAzureAttestationToken(vrfPubkey, attestationProviderURL)
 		if err != nil {
+			w.Write([]byte(err.Error()))
 			return
 		}
 		w.Write([]byte(token))
@@ -340,7 +342,7 @@ func recoveryPrivateKeyFromFile() {
 	}
 	vrfPrivKey, _ = secp256k1.PrivKeyFromBytes(secp256k1.S256(), rawData)
 	vrfPubkey = vrfPrivKey.PubKey().SerializeCompressed()
-	fmt.Printf("recover vrf keys, key:%s\n", hex.EncodeToString(vrfPrivKey.Serialize()))
+	fmt.Println("recover vrf keys")
 }
 
 func generateVRFPrivateKey() {
@@ -348,8 +350,7 @@ func generateVRFPrivateKey() {
 	vrfPrivKey = priv
 	vrfPubkey = vrfPrivKey.PubKey().SerializeCompressed()
 
-	fmt.Printf("enclave vrf private key:%s\n", hex.EncodeToString(vrfPrivKey.Serialize()))
-	fmt.Printf("enclave vrf pubkey key:%s\n", hex.EncodeToString(vrfPubkey))
+	fmt.Printf("generate enclave vrf private key\n")
 	sealKeyToFile()
 	return
 }
