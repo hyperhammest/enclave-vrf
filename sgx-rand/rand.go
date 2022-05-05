@@ -67,7 +67,7 @@ func main() {
 
 func initConfig() {
 	isMasterP := flag.Bool("m", false, "is master or not")
-	listenURLP := flag.String("l", "0.0.0.0:8081", "listen address")
+	listenURLP := flag.String("l", "0.0.0.0:8082", "listen address")
 	signerArg := flag.String("s", "", "signer ID")
 	slaveString := flag.String("p", "", "slave address list seperated by comma")
 	slaveUniqIDArgs := flag.String("u", "", "slave unique id seperated by comma")
@@ -150,14 +150,12 @@ func verifyReport(reportBytes, certBytes, signer, uniqueID []byte) error {
 	return utils.CheckReport(report, certBytes, signer, uniqueID)
 }
 
-// IntelCPUFreq sudo dmidecode -t processor | grep "Speed"
+// IntelCPUFreq /proc/cpuinfo model name
 const intelCPUFreq = 2800_000000
 
-// todo: modify this when running on SGX2 support enclave
 func getTimestampFromTSC() uint64 {
 	cycleNumber := uint64(C.get_tsc())
 	return cycleNumber / intelCPUFreq
-	//return uint64(time.Now().Unix())
 }
 
 func createAndStartHttpsServer() {
@@ -350,7 +348,7 @@ func generateVRFPrivateKey() {
 	vrfPrivKey = priv
 	vrfPubkey = vrfPrivKey.PubKey().SerializeCompressed()
 
-	fmt.Printf("generate enclave vrf private key\n")
+	fmt.Printf("generate enclave vrf private key, its pubkey is: %s\n", hex.EncodeToString(vrfPubkey))
 	sealKeyToFile()
 	return
 }

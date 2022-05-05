@@ -45,10 +45,13 @@ const maxBlockHashCount = 5000
 
 var serverTlsConfig *tls.Config
 
+const certFile = "./cert.pem"
+const keyFile = "./key.pem"
+
 func main() {
 	signerArg := flag.String("s", "", "signer ID")
-	serverAddr = flag.String("r", "localhost:8081", "sgx-rand address")
-	listenURL = flag.String("l", "localhost:8082", " listen address")
+	serverAddr = flag.String("r", "localhost:8082", "sgx-rand address")
+	listenURL = flag.String("l", "localhost:8081", " listen address")
 	uniqueIDArd := flag.String("u", "", "unique ID")
 	smartBCHAddrListArg := flag.String("b", "13.212.74.236:8545,13.212.109.6:8545,18.119.124.186:8545", "smartbch address list, seperated by comma")
 	flag.Parse()
@@ -74,13 +77,11 @@ func main() {
 
 	getBlockHashAndVRFsAndClearOldData(signer, uniqueID)
 
-	_, _, tlsCfg := utils.CreateCertificate(serverName)
-
 	initVrfHttpHandlers()
 
-	server := http.Server{Addr: *listenURL, TLSConfig: &tlsCfg, ReadTimeout: 3 * time.Second, WriteTimeout: 5 * time.Second}
+	server := http.Server{Addr: *listenURL, ReadTimeout: 3 * time.Second, WriteTimeout: 5 * time.Second}
 	fmt.Println("listening ...")
-	err = server.ListenAndServeTLS("", "")
+	err = server.ListenAndServeTLS(certFile, keyFile)
 	fmt.Println(err)
 }
 
