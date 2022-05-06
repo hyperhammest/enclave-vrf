@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Verify VRF Outputs</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.6.umd.min.js" type="application/javascript"></script>
+  </head>
+<body>
+<script type="application/javascript">
+ABI = [
+"function pubKey() public view returns (bytes)",
+"function verify(uint blockHash, uint beta, bytes calldata pi) public view returns (bool)",
+]
+
+const provider = new ethers.providers.JsonRpcProvider("https://smartbch.fountainhead.cash/mainnet");
+const govContract = new ethers.Contract("0x18C51aa3d1F018814716eC2c7C41A20d4FAf023C", ABI, provider)
+
+async function showPubkey() {
+	console.log("Contract pubkey:", await govContract.pubKey());
+	const resp0 = await fetch('https://enclave0.vrf.cash:8081/pubkey');
+	console.log("enclave0 pubkey:", await resp0.text());
+	const resp1 = await fetch('https://enclave1.vrf.cash:8081/pubkey');
+	console.log("enclave1 pubkey:", await resp1.text());
+}
+
+var CurrentHeight = 0
+async function verify() {
+	const height = await provider.getBlockNumber();
+	if(height == CurrentHeight) {
+		return;
+	}
+	CurrentHeight = height
+	const blk = await provider.getBlock(height);
+	console.log("block hash:", blk.hash.substr(2));
+	const out0 = await getVrfOut("https://enclave0.vrf.cash:8081", blk.hash.substr(2));
+	console.log("from enclave0:", out0);
+	const out1 = await getVrfOut("https://enclave1.vrf.cash:8081", blk.hash.substr(2));
+	console.log("from enclave1:", out1);
+	if(out0.PI != out1.PI || out0.Beta != out0.Beta) {
+		console.log("!!!!!!!!!!!!!!!!!!!! MISMATCH !!!!!!!!!!!!!!!");
+		return
+	}
+	const res = await govContract.verify(blk.hash, "0x"+out0.Beta, "0x"+out0.PI)
+	console.log("verify result:", res);
+}
+
+async function getVrfOut(server, hash) {
+	const response = await fetch(server+'/vrf?b='+hash);
+	return await response.json();
+}	
+
+showPubkey()
+setInterval(verify, 5000);
+
+</script>
+</body>
+</html>
