@@ -37,11 +37,15 @@ sudo apt install -y ./ego_0.5.0_amd64.deb build-essential libssl-dev
 
 3. Get the source code and build `rand`
 
+```
 mkdir $HOME/rand
 cd $HOME/rand
-wget -c https://github.com/smartbch/enclave-vrf/archive/refs/tags/v0.1.0.tar.gz | tar zxvf -
+wget https://github.com/smartbch/enclave-vrf/archive/refs/tags/v0.1.0.tar.gz 
+tar zxvf v0.1.0.tar.gz 
+mv enclave-vrf-0.1.0 enclave-vrf
 cd enclave-vrf/sgx-rand
 ego-go build rand.go
+```
 
 
 
