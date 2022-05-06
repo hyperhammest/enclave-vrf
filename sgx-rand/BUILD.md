@@ -1,5 +1,5 @@
 
-To build the 'rand' binary in this directory, please following these steps:
+To build the 'rand' binary in this directory, please follow these steps:
 
 0. Get a `DC1s_v3` instance from Azure, with Ubuntu 20.04
 

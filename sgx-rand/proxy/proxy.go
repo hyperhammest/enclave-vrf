@@ -175,8 +175,13 @@ func getVrf() {
 	blockHashCacheWaitingVrf = newCache
 }
 
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+}
+
 func initVrfHttpHandlers() {
 	http.HandleFunc("/pubkey", func(w http.ResponseWriter, r *http.Request) {
+		enableCors(&w)
 		if len(vrfPubkey) == 0 {
 			vrfPubkey = string(utils.HttpGet(serverTlsConfig, fmt.Sprintf("https://"+*serverAddr+"/pubkey")))
 		}
@@ -187,6 +192,7 @@ func initVrfHttpHandlers() {
 	})
 
 	http.HandleFunc("/vrf", func(w http.ResponseWriter, r *http.Request) {
+		enableCors(&w)
 		hash := r.URL.Query()["b"]
 		if len(hash) == 0 {
 			return
@@ -204,6 +210,7 @@ func initVrfHttpHandlers() {
 
 	// remote report not same
 	http.HandleFunc("/report", func(w http.ResponseWriter, r *http.Request) {
+		enableCors(&w)
 		now := time.Now().Unix()
 		if len(report) == 0 || now > reportCacheTimestamp+5 {
 			report = utils.HttpGet(serverTlsConfig, "https://"+*serverAddr+"/report")
@@ -216,6 +223,7 @@ func initVrfHttpHandlers() {
 	})
 
 	http.HandleFunc("/cert", func(w http.ResponseWriter, r *http.Request) {
+		enableCors(&w)
 		if len(cert) == 0 {
 			cert = utils.HttpGet(serverTlsConfig, "https://"+*serverAddr+"/cert")
 		}
@@ -227,6 +235,7 @@ func initVrfHttpHandlers() {
 
 	// token not same every time calling enclave.CreateAzureAttestationToken， token expiration time is 1 min
 	http.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		enableCors(&w)
 		now := time.Now().Unix()
 		if len(token) == 0 || now > tokenCacheTimestamp+5 {
 			token = utils.HttpGet(serverTlsConfig, "https://"+*serverAddr+"/token")
