@@ -92,6 +92,22 @@ proxy export endpoints below:
 
 
 
+#### Verifier is a glang app run in enclave enabled machine to verify `Rand` through `Proxy`
+
+```
+cd verifier
+CGO_CFLAGS=-I/opt/ego/include CGO_LDFLAGS=-L/opt/ego/lib go build ./...
+./verify -s=[rand-singer-id] -p=[proxy_ip_address] -u=[rand-uniqueid]
+```
+
+if it print like below, it mean verify success:
+
+```
+verify enclave-rand server through proxy success? true, the vrf pubkey is: 03190e58f4bb755fb8c04ff0a0ce9f970f22376c718a338bba280cc92c18109c05
+```
+
+
+
 ## Design Principle
 
 The master is responsible for generating the vrf private key and passing it to the slaves. so the master must verify the identity of the slave through remote attestation of enclave-sgx. 
