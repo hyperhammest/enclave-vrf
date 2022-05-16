@@ -4,9 +4,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -47,6 +49,10 @@ var serverTlsConfig *tls.Config
 
 const certFile = "./cert.pem"
 const keyFile = "./key.pem"
+
+type ErrResult struct {
+	Error string `json:"error,omitempty"`
+}
 
 func main() {
 	signerArg := flag.String("s", "", "signer ID")
@@ -202,6 +208,8 @@ func initVrfHttpHandlers() {
 		vrf := blockHash2VrfResult[blkHash]
 		vrfLock.RUnlock()
 		if len(vrf) == 0 {
+			e, _ := json.Marshal(ErrResult{Error: "not get the vrf of this block hash"})
+			w.Write(e)
 			return
 		}
 		w.Write([]byte(vrf))
@@ -244,6 +252,12 @@ func initVrfHttpHandlers() {
 		if len(token) != 0 {
 			w.Write(token)
 		}
+		return
+	})
+
+	http.HandleFunc("/height", func(w http.ResponseWriter, r *http.Request) {
+		enableCors(&w)
+		w.Write([]byte(strconv.FormatInt(int64(latestBlockNumber), 16)))
 		return
 	})
 }
