@@ -97,7 +97,7 @@ proxy export endpoints below:
 ```
 cd verifier
 CGO_CFLAGS=-I/opt/ego/include CGO_LDFLAGS=-L/opt/ego/lib go build ./...
-./verify -s=[rand-singer-id] -p=[proxy_ip_address] -u=[rand-uniqueid]
+AZDCAP_DEBUG_LOG_LEVEL=FATAL ./verify -s=[rand-singer-id] -p=[proxy_ip_address] -u=[rand-uniqueid]
 ```
 
 if it print like below, it mean verify success:
