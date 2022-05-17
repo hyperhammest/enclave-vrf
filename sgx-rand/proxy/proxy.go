@@ -27,6 +27,7 @@ var vrfPubkey string
 
 var blockHashSet []string
 var blockHash2Time = make(map[string]int64)
+var blockHash2Height = make(map[string]uint64)
 
 var vrfLock sync.RWMutex
 var blockHash2VrfResult = make(map[string]string)
@@ -41,6 +42,7 @@ var token []byte
 var tokenCacheTimestamp int64
 
 var latestBlockNumber uint64
+var latestVrfBlockNumber uint64
 
 const serverName = "SGX-VRF-PUBKEY"
 const maxBlockHashCount = 5000
@@ -113,6 +115,7 @@ func getBlockHashAndVRFsAndClearOldData(signer, uniqueID []byte) {
 				fmt.Println("clear blockHashSet")
 				for _, hash := range blockHashSet[:len(blockHashSet)-maxBlockHashCount] {
 					delete(blockHash2Time, hash)
+					delete(blockHash2Height, hash)
 					vrfLock.Lock()
 					delete(blockHash2VrfResult, hash)
 					vrfLock.Unlock()
@@ -156,6 +159,7 @@ func blockHashConsume() (exist bool) {
 		return true
 	}
 	fmt.Println("new blockHash")
+	blockHash2Height[blkHash] = blkNum
 	sendBlockHash2SGX(blkHash)
 	return false
 }
@@ -173,6 +177,7 @@ func getVrf() {
 		if len(res) != 0 {
 			vrfLock.Lock()
 			blockHash2VrfResult[blkHash] = string(res)
+			latestVrfBlockNumber = blockHash2Height[blkHash]
 			vrfLock.Unlock()
 		} else {
 			newCache = append(newCache, blkHash)
@@ -257,7 +262,9 @@ func initVrfHttpHandlers() {
 
 	http.HandleFunc("/height", func(w http.ResponseWriter, r *http.Request) {
 		enableCors(&w)
-		w.Write([]byte(strconv.FormatInt(int64(latestBlockNumber), 16)))
+		vrfLock.RLock()
+		w.Write([]byte(strconv.FormatInt(int64(latestVrfBlockNumber), 16)))
+		vrfLock.RUnlock()
 		return
 	})
 }
