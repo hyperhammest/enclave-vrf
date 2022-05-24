@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type blockByNumberRes struct {
@@ -25,28 +26,34 @@ type nodeInfoRes struct {
 }
 
 func getBlockHashByNum(addrs []string, num uint64) string {
-	for _, addr := range addrs {
-		reqStrBlockHashByNumber := fmt.Sprintf("{\"jsonrpc\":\"2.0\",\"method\":\"eth_getBlockByNumber\",\"params\":[\"%s\",false],\"id\":1}", "0x"+fmt.Sprintf("%x", num))
-		hashRes := sendRequest("http://"+addr, reqStrBlockHashByNumber)
-		fmt.Println(hashRes)
-		if len(hashRes) == 0 {
-			continue
+	for {
+		for _, addr := range addrs {
+			reqStrBlockHashByNumber := fmt.Sprintf("{\"jsonrpc\":\"2.0\",\"method\":\"eth_getBlockByNumber\",\"params\":[\"%s\",false],\"id\":1}", "0x"+fmt.Sprintf("%x", num))
+			hashRes := sendRequest(addr, reqStrBlockHashByNumber)
+			fmt.Println(hashRes)
+			if len(hashRes) == 0 {
+				continue
+			}
+			var hashR blockByNumberRes
+			json.Unmarshal([]byte(hashRes), &hashR)
+			return hashR.Result.Hash[2:]
 		}
-		var hashR blockByNumberRes
-		json.Unmarshal([]byte(hashRes), &hashR)
-		return hashR.Result.Hash[2:]
+		fmt.Printf("retry getBlockHashByNum:%d\n", num)
+		time.Sleep(10 * time.Second)
 	}
-	panic("all smartbch node disconnect!!!")
 }
 
 func getBlockNumAndHash(addrs []string) (uint64, string) {
-	for _, addr := range addrs {
-		blkNum, blkHash := getLatestBlockNumAndHash("http://" + addr)
-		if blkHash != "" {
-			return blkNum, blkHash
+	for {
+		for _, addr := range addrs {
+			blkNum, blkHash := getLatestBlockNumAndHash(addr)
+			if blkHash != "" {
+				return blkNum, blkHash
+			}
 		}
+		fmt.Println("retry getBlockNumAndHash")
+		time.Sleep(10 * time.Second)
 	}
-	panic("all smartbch node disconnect!!!")
 }
 
 func getLatestBlockNumAndHash(url string) (uint64, string) {

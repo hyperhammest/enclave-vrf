@@ -61,7 +61,7 @@ func main() {
 	serverAddr = flag.String("r", "localhost:8082", "sgx-rand address")
 	listenURL = flag.String("l", "localhost:8081", " listen address")
 	uniqueIDArd := flag.String("u", "", "unique ID")
-	smartBCHAddrListArg := flag.String("b", "13.212.74.236:8545,13.212.109.6:8545,18.119.124.186:8545", "smartbch address list, seperated by comma")
+	smartBCHAddrListArg := flag.String("b", "http://13.212.74.236:8545,http://13.212.109.6:8545,http://18.119.124.186:8545,https://smartbch.fountainhead.cash/mainnet,https://global.uat.cash", "smartbch address list, seperated by comma")
 	flag.Parse()
 
 	// get signer command line argument
