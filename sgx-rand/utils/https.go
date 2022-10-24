@@ -38,7 +38,7 @@ func CreateCertificate(serverName string) ([]byte, crypto.PrivateKey, tls.Config
 	template := &x509.Certificate{
 		SerialNumber: &big.Int{},
 		Subject:      pkix.Name{CommonName: serverName},
-		NotAfter:     time.Now().Add(10 * 365 * time.Hour), // 10 years
+		NotAfter:     time.Now().Add(10 * 365 * 24 * time.Hour), // 10 years
 		DNSNames:     []string{serverName},
 	}
 	priv, _ := rsa.GenerateKey(rand.Reader, 2048)
