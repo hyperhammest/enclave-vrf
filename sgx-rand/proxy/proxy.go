@@ -270,7 +270,7 @@ func initVrfHttpHandlers() {
 }
 
 func verifyServerAndGetCert(address string, signer, uniqueID []byte) {
-	certBytes := utils.VerifySever(address, signer, uniqueID, verifyReport)
+	certBytes := utils.VerifyServer(address, signer, uniqueID, verifyReport)
 	cert, _ := x509.ParseCertificate(certBytes)
 	serverTlsConfig = &tls.Config{RootCAs: x509.NewCertPool(), ServerName: serverName}
 	serverTlsConfig.RootCAs.AddCert(cert)

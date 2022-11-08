@@ -2,11 +2,11 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -21,10 +21,10 @@ import (
 	secp256k1 "github.com/btcsuite/btcd/btcec"
 	"github.com/edgelesssys/ego/ecrypto"
 	"github.com/edgelesssys/ego/enclave"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	vrf "github.com/vechain/go-ecvrf"
 
 	"github.com/smartbch/enclave-vrf/sgx-rand/utils"
@@ -34,11 +34,11 @@ import (
 import "C"
 
 var (
-	listenURL  string
-	slaves     []string
+	listenURL      string
+	slaves         []string
 	slaveUniqueIDs [][]byte
-	vrfPrivKey *secp256k1.PrivateKey
-	vrfPubkey []byte //compressed pubkey
+	vrfPrivKey     *secp256k1.PrivateKey
+	vrfPubkey      []byte //compressed pubkey
 
 )
 
@@ -48,8 +48,8 @@ var isMaster bool
 const (
 	httpsCertFile = "./cert.pem"
 	httpsKeyFile  = "./key.pem"
-	keyFile = "/data/key.txt"
-	serverName = "SGX-VRF-ACCESS-CONTROL"
+	keyFile       = "/data/key.txt"
+	serverName    = "SGX-VRF-ACCESS-CONTROL"
 )
 
 func main() {
@@ -173,7 +173,7 @@ func initHttpHandlers() {
 		return
 	})
 
-//#### `/skey?contract=<contract-address>&data=<calldata>&sig=<from-account-signature>`
+	//#### `/skey?contract=<contract-address>&data=<calldata>&sig=<from-account-signature>`
 	http.HandleFunc("/skey", func(w http.ResponseWriter, r *http.Request) {
 		enableCors(&w)
 
@@ -231,7 +231,7 @@ func readParam(query map[string][]string, key string) (param []byte, errResult *
 	if len(values) > 1 {
 		errResult = &Result{
 			IsSuccess: false,
-			Message:   key+" is not unique",
+			Message:   key + " is not unique",
 		}
 		return
 	}
@@ -241,7 +241,7 @@ func readParam(query map[string][]string, key string) (param []byte, errResult *
 	if err != nil {
 		errResult = &Result{
 			IsSuccess: false,
-			Message:   "cannot decode "+value,
+			Message:   "cannot decode " + value,
 		}
 		return
 	}
@@ -255,7 +255,7 @@ func slaveHandshake() {
 }
 
 func verifySlaveAndSendKey(slaveAddress string, uniqID []byte) {
-	certBytes := utils.VerifySever(slaveAddress, signer, uniqID, verifyReport)
+	certBytes := utils.VerifyServer(slaveAddress, signer, uniqID, verifyReport)
 
 	// Create a TLS config that uses the server certificate as root
 	// CA so that future connections to the server can be verified.
@@ -387,8 +387,8 @@ func GetSymmetricKey(contractAddr common.Address, callData, sig []byte, vrfKey *
 	}
 	return Result{
 		IsSuccess:    true,
-		SymmetricKey: "0x"+hex.EncodeToString(beta),
-		Proof:        "0x"+hex.EncodeToString(pi),
+		SymmetricKey: "0x" + hex.EncodeToString(beta),
+		Proof:        "0x" + hex.EncodeToString(pi),
 	}
 }
 
@@ -442,7 +442,7 @@ func callContractFromOneNode(rpcUrl string, contractAddr, from common.Address, c
 	}
 	defer ethClient.Close()
 
-	msg := ethereum.CallMsg {
+	msg := ethereum.CallMsg{
 		From:     from,
 		To:       &contractAddr,
 		GasPrice: big.NewInt(1),
@@ -453,4 +453,3 @@ func callContractFromOneNode(rpcUrl string, contractAddr, from common.Address, c
 	out, err := ethClient.CallContract(ctx, msg, nil)
 	return out, err
 }
-

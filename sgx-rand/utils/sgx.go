@@ -34,7 +34,7 @@ func CheckReport(report attestation.Report, certBytes, signer, uniqueID []byte) 
 	return nil
 }
 
-func VerifySever(address string, signer, uniqueID []byte, verifyReport func(reportBytes, certBytes, signer, uniqueID []byte) error) []byte {
+func VerifyServer(address string, signer, uniqueID []byte, verifyReport func(reportBytes, certBytes, signer, uniqueID []byte) error) []byte {
 	url := "https://" + address
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 

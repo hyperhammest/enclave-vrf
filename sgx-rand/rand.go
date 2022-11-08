@@ -117,7 +117,7 @@ func slaveHandshake() {
 }
 
 func verifySlaveAndSendKey(slaveAddress string, uniqID []byte) {
-	certBytes := utils.VerifySever(slaveAddress, signer, uniqID, verifyReport)
+	certBytes := utils.VerifyServer(slaveAddress, signer, uniqID, verifyReport)
 
 	// Create a TLS config that uses the server certificate as root
 	// CA so that future connections to the server can be verified.
