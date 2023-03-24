@@ -64,11 +64,11 @@ func initConfig() {
 	keyGrantorUrl = *keyGrantorUrlP
 }
 
-func generateRandom64Bytes() []byte {
+func generateRandom32Bytes() []byte {
 	var out []byte
 	var x C.uint16_t
 	var retry C.int = 1
-	for i := 0; i < 64; i++ {
+	for i := 0; i < 32; i++ {
 		C.rdrand_16(&x, retry)
 		out = append(out, byte(x))
 	}
@@ -224,7 +224,7 @@ func clearOldBlockHash() {
 }
 
 func getKeyFromKeyGrantor() {
-	priv := ecies.NewPrivateKeyFromBytes(generateRandom64Bytes())
+	priv := ecies.NewPrivateKeyFromBytes(generateRandom32Bytes())
 	pubkey := priv.PublicKey.Bytes(true)
 	report, err := enclave.GetRemoteReport(pubkey)
 	if err != nil {
@@ -235,7 +235,11 @@ func getKeyFromKeyGrantor() {
 	if res == nil {
 		panic("get key from keygrantor failed")
 	}
-	keyBz, err := ecies.Decrypt(priv, res)
+	resBz, err := hex.DecodeString(string(res))
+	if err != nil {
+		panic(err)
+	}
+	keyBz, err := ecies.Decrypt(priv, resBz)
 	if err != nil {
 		fmt.Println("failed to decrypt message from server")
 		panic(err)
