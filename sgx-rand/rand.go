@@ -3,24 +3,22 @@ package main
 import (
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
 	secp256k1 "github.com/btcsuite/btcd/btcec"
+	ecies "github.com/ecies/go/v2"
 	"github.com/edgelesssys/ego/ecrypto"
 	"github.com/edgelesssys/ego/enclave"
-	vrf "github.com/vechain/go-ecvrf"
-
 	"github.com/smartbch/enclave-vrf/sgx-rand/utils"
+	"github.com/tyler-smith/go-bip32"
+	vrf "github.com/vechain/go-ecvrf"
 )
 
 // #include "util.h"
@@ -32,8 +30,7 @@ type vrfResult struct {
 }
 
 var listenURL string
-var slaves []string
-var slaveUniqueIDs [][]byte
+var keyGrantorUrl string
 var vrfPubkey []byte //compressed pubkey
 var vrfPrivKey *secp256k1.PrivateKey
 
@@ -45,9 +42,6 @@ var lock sync.RWMutex
 
 var keyFile = "/data/key.txt"
 
-var signer []byte
-var isMaster bool
-
 const serverName = "SGX-VRF-PUBKEY"
 const attestationProviderURL = "https://shareduks.uks.attest.azure.net"
 
@@ -58,77 +52,16 @@ func main() {
 	initConfig()
 	recoveryPrivateKeyFromFile()
 	go createAndStartHttpsServer()
-	time.Sleep(time.Second)
-	if isMaster {
-		go slaveHandshake()
-	}
 	select {}
 }
 
 func initConfig() {
-	isMasterP := flag.Bool("m", false, "is master or not")
+	keyGrantorUrlP := flag.String("g", "0.0.0.0:8084", "keygrantor url")
 	listenURLP := flag.String("l", "0.0.0.0:8082", "listen address")
-	signerArg := flag.String("s", "", "signer ID")
-	slaveString := flag.String("p", "", "slave address list seperated by comma")
-	slaveUniqIDArgs := flag.String("u", "", "slave unique id seperated by comma")
 	flag.Parse()
-	isMaster = *isMasterP
 	listenURL = *listenURLP
-	fmt.Println(isMaster)
 	fmt.Println(listenURL)
-	// get slaves
-	if *slaveString != "" {
-		slaves = strings.Split(*slaveString, ",")
-	}
-	if *slaveUniqIDArgs != "" {
-		slaveUniqueIDStrings := strings.Split(*slaveUniqIDArgs, ",")
-		for _, str := range slaveUniqueIDStrings {
-			id, err := hex.DecodeString(str)
-			if err != nil {
-				panic(err)
-			}
-			slaveUniqueIDs = append(slaveUniqueIDs, id)
-		}
-	}
-	if !isMaster && len(slaves) != 0 {
-		panic("slave should has no slaves")
-	}
-	if len(slaveUniqueIDs) != len(slaves) {
-		panic("number of slave address not match number of slave uniqueID")
-	}
-	if isMaster {
-		// get signer command line argument
-		var err error
-		signer, err = hex.DecodeString(*signerArg)
-		if err != nil {
-			panic(err)
-		}
-		if len(signer) == 0 {
-			flag.Usage()
-			return
-		}
-	}
-}
-
-func slaveHandshake() {
-	for i, slave := range slaves {
-		verifySlaveAndSendKey(slave, slaveUniqueIDs[i])
-	}
-}
-
-func verifySlaveAndSendKey(slaveAddress string, uniqID []byte) {
-	certBytes := utils.VerifyServer(slaveAddress, signer, uniqID, verifyReport)
-
-	// Create a TLS config that uses the server certificate as root
-	// CA so that future connections to the server can be verified.
-	if len(vrfPubkey) != 0 {
-		cert, _ := x509.ParseCertificate(certBytes)
-		tlsConfig := &tls.Config{RootCAs: x509.NewCertPool(), ServerName: serverName}
-		tlsConfig.RootCAs.AddCert(cert)
-
-		utils.HttpGet(tlsConfig, "https://"+slaveAddress+fmt.Sprintf("/key?k=%s", hex.EncodeToString(vrfPrivKey.Serialize())))
-		fmt.Printf("send key to slave:%s passed\n", slaveAddress)
-	}
+	keyGrantorUrl = *keyGrantorUrlP
 }
 
 func generateRandom64Bytes() []byte {
@@ -140,14 +73,6 @@ func generateRandom64Bytes() []byte {
 		out = append(out, byte(x))
 	}
 	return out
-}
-
-func verifyReport(reportBytes, certBytes, signer, uniqueID []byte) error {
-	report, err := enclave.VerifyRemoteReport(reportBytes)
-	if err != nil {
-		return err
-	}
-	return utils.CheckReport(report, certBytes, signer, uniqueID)
 }
 
 // IntelCPUFreq /proc/cpuinfo model name
@@ -255,29 +180,6 @@ func initVrfHttpHandlers() {
 		return
 	})
 
-	if !isMaster {
-		http.HandleFunc("/key", func(w http.ResponseWriter, r *http.Request) {
-			fmt.Printf("%v sent key to me\n", r.RemoteAddr)
-			if len(vrfPubkey) != 0 {
-				return
-			}
-			keys := r.URL.Query()["k"]
-			if len(keys) == 0 {
-				return
-			}
-			key := keys[0]
-			keyBytes, err := hex.DecodeString(key)
-			if err != nil {
-				return
-			}
-			priv, pubkey := secp256k1.PrivKeyFromBytes(secp256k1.S256(), keyBytes)
-			vrfPrivKey = priv
-			vrfPubkey = pubkey.SerializeCompressed()
-			sealKeyToFile()
-			return
-		})
-	}
-
 	http.HandleFunc("/report", func(w http.ResponseWriter, r *http.Request) {
 		if len(vrfPubkey) == 0 {
 			return
@@ -321,15 +223,42 @@ func clearOldBlockHash() {
 	}
 }
 
+func getKeyFromKeyGrantor() {
+	priv := ecies.NewPrivateKeyFromBytes(generateRandom64Bytes())
+	pubkey := priv.PublicKey.Bytes(true)
+	report, err := enclave.GetRemoteReport(pubkey)
+	if err != nil {
+		panic(err)
+	}
+	// todo: support https
+	res := utils.HttpGet(nil, "http://"+keyGrantorUrl+fmt.Sprintf("/getkey?report=%s", hex.EncodeToString(report)))
+	if res == nil {
+		panic("get key from keygrantor failed")
+	}
+	keyBz, err := ecies.Decrypt(priv, res)
+	if err != nil {
+		fmt.Println("failed to decrypt message from server")
+		panic(err)
+	}
+	outKey, err := bip32.Deserialize(keyBz)
+	if err != nil {
+		fmt.Println("failed to deserialize the key from server")
+		panic(err)
+	}
+	vrfPrivKey, _ = secp256k1.PrivKeyFromBytes(secp256k1.S256(), outKey.Key)
+	vrfPubkey = vrfPrivKey.PubKey().SerializeCompressed()
+	fmt.Printf("get enclave vrf private key from keygrantor, its pubkey is: %s\n", hex.EncodeToString(vrfPubkey))
+	sealKeyToFile()
+	return
+}
+
 func recoveryPrivateKeyFromFile() {
 	fileData, err := os.ReadFile(keyFile)
 	if err != nil {
 		fmt.Printf("read file failed, %s\n", err.Error())
 		if os.IsNotExist(err) {
 			// maybe first run this enclave app
-			if isMaster {
-				generateVRFPrivateKey()
-			}
+			getKeyFromKeyGrantor()
 		}
 		return
 	}
@@ -341,16 +270,6 @@ func recoveryPrivateKeyFromFile() {
 	vrfPrivKey, _ = secp256k1.PrivKeyFromBytes(secp256k1.S256(), rawData)
 	vrfPubkey = vrfPrivKey.PubKey().SerializeCompressed()
 	fmt.Println("recover vrf keys")
-}
-
-func generateVRFPrivateKey() {
-	priv, _ := secp256k1.PrivKeyFromBytes(secp256k1.S256(), generateRandom64Bytes())
-	vrfPrivKey = priv
-	vrfPubkey = vrfPrivKey.PubKey().SerializeCompressed()
-
-	fmt.Printf("generate enclave vrf private key, its pubkey is: %s\n", hex.EncodeToString(vrfPubkey))
-	sealKeyToFile()
-	return
 }
 
 func sealKeyToFile() {

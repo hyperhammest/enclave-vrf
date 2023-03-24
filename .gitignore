@@ -5,3 +5,4 @@
 *.sol~
 *.js~
 access-control/access-control
+js_attest/node_modules
