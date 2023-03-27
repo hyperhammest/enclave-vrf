@@ -230,8 +230,14 @@ func getKeyFromKeyGrantor() {
 	if err != nil {
 		panic(err)
 	}
+	token, err := enclave.CreateAzureAttestationToken(pubkey, attestationProviderURL)
+	if err != nil {
+		panic(err)
+	}
 	// todo: support https
-	res := utils.HttpGet(nil, "http://"+keyGrantorUrl+fmt.Sprintf("/getkey?report=%s", hex.EncodeToString(report)))
+	url := fmt.Sprintf("http://%s/getkey?report=%s&token=%s", keyGrantorUrl, hex.EncodeToString(report), token)
+	// todo: support https
+	res := utils.HttpGet(nil, url)
 	if res == nil {
 		panic("get key from keygrantor failed")
 	}
