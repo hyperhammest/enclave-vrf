@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sync"
@@ -223,34 +225,73 @@ func clearOldBlockHash() {
 	}
 }
 
-func getKeyFromKeyGrantor() {
-	priv := ecies.NewPrivateKeyFromBytes(generateRandom32Bytes())
-	pubkey := priv.PublicKey.Bytes(true)
-	report, err := enclave.GetRemoteReport(pubkey)
+func GetKeyFromKeyGrantor(keyGrantorUrl string, clientData [32]byte) (*bip32.Key, error) {
+	privKey := ecies.NewPrivateKeyFromBytes(generateRandom32Bytes())
+	pubkey := privKey.PublicKey.Bytes(true)
+	pubkeyHash := sha256.Sum256(pubkey)
+	report, err := enclave.GetRemoteReport(append(pubkeyHash[:], clientData[:]...))
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to get remote report: %w", err)
 	}
 	token, err := enclave.CreateAzureAttestationToken(pubkey, attestationProviderURL)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to create attestation report: %w", err)
 	}
-	// todo: support https
-	url := fmt.Sprintf("http://%s/getkey?report=%s&token=%s", keyGrantorUrl, hex.EncodeToString(report), token)
-	// todo: support https
-	res := utils.HttpGet(nil, url)
+	url := fmt.Sprintf("%s/getkey?pubkey=%s", keyGrantorUrl, hex.EncodeToString(pubkey))
+	params := GetKeyParams{
+		Report: hex.EncodeToString(report),
+		JWT:    token,
+	}
+	jsonReq, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+	res, err := HttpPost(url, jsonReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get key: %w", err)
+	}
 	if res == nil {
-		panic("get key from keygrantor failed")
+		return nil, fmt.Errorf("failed to get key: no resust data")
 	}
 	resBz, err := hex.DecodeString(string(res))
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to decode key: %w", err)
 	}
-	keyBz, err := ecies.Decrypt(priv, resBz)
+	keyBz, err := ecies.Decrypt(privKey, resBz)
 	if err != nil {
-		fmt.Println("failed to decrypt message from server")
-		panic(err)
+		return nil, fmt.Errorf("failed to decrypt message from server: %w", err)
 	}
 	outKey, err := bip32.Deserialize(keyBz)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deserialize the key from server: %w", err)
+	}
+	return outKey, nil
+}
+
+func HttpPost(url string, jsonReq []byte) ([]byte, error) {
+	client := http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Post(url, "application/json", bytes.NewReader(jsonReq))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get key, http status:%s, content:%s", resp.Status, string(body))
+	}
+	return body, nil
+}
+
+type GetKeyParams struct {
+	Report string `json:"Report"`
+	JWT    string `json:"JWT"`
+}
+
+func getKeyFromKeyGrantor() {
+	outKey, err := GetKeyFromKeyGrantor(keyGrantorUrl, [32]byte{})
 	if err != nil {
 		fmt.Println("failed to deserialize the key from server")
 		panic(err)
