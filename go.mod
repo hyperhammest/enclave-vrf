@@ -8,6 +8,7 @@ require (
 	github.com/ethereum/go-ethereum v1.11.0
 	github.com/tyler-smith/go-bip32 v1.0.0
 	github.com/vechain/go-ecvrf v0.0.0-20200326080414-5b7e9ee61906
+	github.com/smartbch/egvm v0.0.0-20230906040909-2bfbba098907
 )
 
 require (
