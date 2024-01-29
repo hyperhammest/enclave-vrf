@@ -1,17 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
+	"io/ioutil"
 	"os"
 	"sync"
 
 	"github.com/edgelesssys/ego/ecrypto"
 	"github.com/smartbch/egvm/keygrantor"
 	vrf "github.com/vechain/go-ecvrf"
+	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 // #include "util.h"
@@ -29,22 +32,41 @@ var randClient *keygrantor.SimpleClient
 
 var blockHash2Beta = make(map[string][]byte)
 var blockHash2PI = make(map[string][]byte)
-var blockHash2Timestamp = make(map[string]uint64)
+var blockHash2Timestamp = make(map[string]int64)
 var blockHashSet []string
 var lock sync.RWMutex
+var intelCPUFreq int64
 
 const (
 	maxBlockHashCount = 5000
 	serverName        = "SGX-VRF-PUBKEY"
 	// IntelCPUFreq /proc/cpuinfo model name
-	intelCPUFreq = 2800_000000
 	keyFile      = "/data/key.txt"
+	delayMargin  = 4
 )
+
+type Headers struct {
+	LastHeader tmtypes.Header `json:"last_header"`
+	CurrHeader tmtypes.Header `json:"curr_header"`
+}
+
+func getDelay(headers Headers, blkHash []byte) int64 {
+	hash := headers.CurrHeader.Hash()
+	if !bytes.Equal(hash, blkHash) {
+		return -1
+	}
+	hash = headers.LastHeader.Hash()
+	if !bytes.Equal(hash, headers.CurrHeader.LastBlockID.Hash) {
+		return -1
+	}
+	return (headers.LastHeader.Time.UnixNano() - headers.LastHeader.Time.UnixNano()) / 1e9 + delayMargin
+}
 
 // start slave first, then start master to send key to them
 // master must be sure slave is our own enclave app
 // slave no need to be sure master is enclave app because the same vrf pubkey provided by all slave and master owned, it can check outside.
 func main() {
+	intelCPUFreq = int64(C.getFreq())
 	initConfig()
 	randClient = &keygrantor.SimpleClient{}
 	_, err := os.ReadFile(keyFile)
@@ -76,10 +98,35 @@ func main() {
 			w.Write([]byte("this blockhash already here"))
 			return
 		}
+
 		hashBytes, err := hex.DecodeString(blkHash)
 		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid BlockHash"))
 			return
 		}
+
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("failed to read request body"))
+			return
+		}
+		var headers Headers
+		err = json.Unmarshal(body, &headers)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("failed to unmarshal headers"))
+			return
+		}
+		
+		delay := getDelay(headers, hashBytes)
+
+		if delay <= 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid Headers"))
+		}
+
 		beta, pi, err := vrf.Secp256k1Sha256Tai.Prove(randClient.PrivKey.ToECDSA(), hashBytes)
 		if err != nil {
 			fmt.Printf("do vrf failed: %s\n", err.Error())
@@ -88,7 +135,7 @@ func main() {
 		}
 		blockHash2Beta[blkHash] = beta
 		blockHash2PI[blkHash] = pi
-		blockHash2Timestamp[blkHash] = getTimestampFromTSC()
+		blockHash2Timestamp[blkHash] = getTimestampFromTSC() + delay
 		blockHashSet = append(blockHashSet, blkHash)
 		clearOldBlockHash()
 		fmt.Printf("%v sent block hash to me %v\n", r.RemoteAddr, r.URL.Query()["b"])
@@ -108,7 +155,7 @@ func main() {
 			w.Write([]byte("not has this blockhash"))
 			return
 		}
-		if vrfTimestamp+5 > getTimestampFromTSC() {
+		if vrfTimestamp > getTimestampFromTSC() {
 			w.Write([]byte("please get vrf later, the blockhash not mature"))
 			return
 		}
@@ -133,8 +180,8 @@ func initConfig() {
 	keyGrantorUrl = *keyGrantorUrlP
 }
 
-func getTimestampFromTSC() uint64 {
-	cycleNumber := uint64(C.get_tsc())
+func getTimestampFromTSC() int64 {
+	cycleNumber := int64(C.get_tsc())
 	return cycleNumber / intelCPUFreq
 }
 

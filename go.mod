@@ -5,11 +5,24 @@ go 1.18
 require (
 	github.com/edgelesssys/ego v1.2.0
 	github.com/ethereum/go-ethereum v1.11.0
-	github.com/smartbch/egvm v0.0.0-20230906040909-2bfbba098907
 	github.com/vechain/go-ecvrf v0.0.0-20220525125849-96fa0442e765
 )
 
-replace github.com/smartbch/egvm => ./../../hyperhammest/egvm
+require (
+	github.com/go-kit/kit v0.10.0 // indirect
+	github.com/go-logfmt/logfmt v0.5.1 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa // indirect
+	github.com/smartbch/egvm v0.0.0-20240127112228-1b3c0eb853d5
+	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/text v0.8.0 // indirect
+	google.golang.org/genproto v0.0.0-20210624195500-8bfb893ecb84 // indirect
+	google.golang.org/grpc v1.38.0 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
+)
 
 require (
 	github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e // indirect
@@ -23,6 +36,7 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
+	github.com/tendermint/tendermint v0.34.10
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/tyler-smith/go-bip32 v1.0.0 // indirect
@@ -35,3 +49,5 @@ require (
 	golang.org/x/crypto v0.7.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 )
+
+replace github.com/tendermint/tendermint v0.34.10 => github.com/smartbch/tendermint v0.34.10-p2
