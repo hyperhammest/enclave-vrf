@@ -42,7 +42,7 @@ const (
 	serverName        = "SGX-VRF-PUBKEY"
 	// IntelCPUFreq /proc/cpuinfo model name
 	keyFile      = "/data/key.txt"
-	delayMargin  = 4
+	delayMargin  = 4000
 )
 
 type Headers struct {
@@ -59,7 +59,7 @@ func getDelay(headers Headers, blkHash []byte) int64 {
 	if !bytes.Equal(hash, headers.CurrHeader.LastBlockID.Hash) {
 		return -1
 	}
-	return (headers.LastHeader.Time.UnixNano() - headers.LastHeader.Time.UnixNano()) / 1e9 + delayMargin
+	return (headers.LastHeader.Time.UnixNano() - headers.LastHeader.Time.UnixNano()) / 1e6 + delayMargin
 }
 
 // start slave first, then start master to send key to them
@@ -182,7 +182,7 @@ func initConfig() {
 
 func getTimestampFromTSC() int64 {
 	cycleNumber := int64(C.get_tsc())
-	return cycleNumber / intelCPUFreq
+	return cycleNumber*1000 / intelCPUFreq
 }
 
 func clearOldBlockHash() {
