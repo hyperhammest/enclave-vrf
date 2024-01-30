@@ -6,15 +6,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"net/http"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"sync"
 
 	"github.com/edgelesssys/ego/ecrypto"
 	"github.com/smartbch/egvm/keygrantor"
-	vrf "github.com/vechain/go-ecvrf"
 	tmtypes "github.com/tendermint/tendermint/types"
+	vrf "github.com/vechain/go-ecvrf"
 )
 
 // #include "util.h"
@@ -41,8 +41,8 @@ const (
 	maxBlockHashCount = 5000
 	serverName        = "SGX-VRF-PUBKEY"
 	// IntelCPUFreq /proc/cpuinfo model name
-	keyFile      = "/data/key.txt"
-	delayMargin  = 4000
+	keyFile     = "/data/key.txt"
+	delayMargin = 4000
 )
 
 type Headers struct {
@@ -59,7 +59,7 @@ func getDelay(headers Headers, blkHash []byte) int64 {
 	if !bytes.Equal(hash, headers.CurrHeader.LastBlockID.Hash) {
 		return -1
 	}
-	return (headers.LastHeader.Time.UnixNano() - headers.LastHeader.Time.UnixNano()) / 1e6 + delayMargin
+	return (headers.CurrHeader.Time.UnixNano()-headers.LastHeader.Time.UnixNano())/1e6 + delayMargin
 }
 
 // start slave first, then start master to send key to them
@@ -119,7 +119,7 @@ func main() {
 			w.Write([]byte("failed to unmarshal headers"))
 			return
 		}
-		
+
 		delay := getDelay(headers, hashBytes)
 
 		if delay <= 0 {
@@ -182,7 +182,7 @@ func initConfig() {
 
 func getTimestampFromTSC() int64 {
 	cycleNumber := int64(C.get_tsc())
-	return cycleNumber*1000 / intelCPUFreq
+	return cycleNumber * 1000 / intelCPUFreq
 }
 
 func clearOldBlockHash() {

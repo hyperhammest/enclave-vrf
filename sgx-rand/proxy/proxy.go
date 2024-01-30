@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/edgelesssys/ego/eclient"
+	tmtypes "github.com/tendermint/tendermint/types"
 
 	"github.com/smartbch/enclave-vrf/sgx-rand/utils"
 )
@@ -134,17 +136,32 @@ func getLatest256BlockHash() {
 	if latestBlockNumber != 0 {
 		for i := uint64(1); i <= 256; i++ {
 			hash := getBlockHashByNum(smartBCHAddrList, latestBlockNumber-i)
-			sendBlockHash2SGX(hash)
+			sendBlockHash2SGX(hash, latestBlockNumber-i)
 		}
 	}
 }
 
-func sendBlockHash2SGX(blkHash string) {
+type Headers struct {
+	LastHeader tmtypes.Header `json:"last_header"`
+	CurrHeader tmtypes.Header `json:"curr_header"`
+}
+
+func sendBlockHash2SGX(blkHash string, height uint64) {
 	blockHash2Time[blkHash] = time.Now().Unix()
 	blockHashSet = append(blockHashSet, blkHash)
 	fmt.Println("send blockHash to sgx-rand")
+	currentHeader := getHeader(smartBCHAddrList, height)
+	lastHeader := getHeader(smartBCHAddrList, height-1)
+	var headers Headers
+	headers.CurrHeader = currentHeader
+	headers.LastHeader = lastHeader
+	jsonBody, err := json.Marshal(headers)
+	if err != nil {
+		panic(err)
+	}
+	bodyReader := bytes.NewReader(jsonBody)
 	//todo: add response verify, make sure blockHash sent to server
-	utils.HttpGet(serverTlsConfig, fmt.Sprintf("https://"+*serverAddr+"/blockhash?b=%s", blkHash))
+	utils.HttpPost(serverTlsConfig, fmt.Sprintf("https://"+*serverAddr+"/blockhash?b=%s", blkHash), bodyReader)
 	fmt.Println("sent blockHash to sgx-rand")
 	blockHashCacheWaitingVrf = append(blockHashCacheWaitingVrf, blkHash)
 }
@@ -160,7 +177,7 @@ func blockHashConsume() (exist bool) {
 	}
 	fmt.Println("new blockHash")
 	blockHash2Height[blkHash] = blkNum
-	sendBlockHash2SGX(blkHash)
+	sendBlockHash2SGX(blkHash, blkNum)
 	return false
 }
 

@@ -2,11 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
+	"github.com/tendermint/tendermint/types"
 )
 
 type blockByNumberRes struct {
@@ -66,6 +71,50 @@ func getLatestBlockNumAndHash(url string) (uint64, string) {
 	json.Unmarshal([]byte(infoRes), &info)
 	fmt.Println(info.Result.NextBlock.Hash)
 	return uint64(info.Result.NextBlock.Number), info.Result.NextBlock.Hash[2:]
+}
+
+func getHeader(addrs []string, height uint64) types.Header {
+	for {
+		for _, addr := range addrs {
+			if !strings.Contains(addr, "8545") {
+				continue
+			}
+			addr = strings.ReplaceAll(addr, "8545", "26657")
+			header, err := getBlockHeaderByNumber(addr, height)
+			if err == nil {
+				return header
+			}
+		}
+		fmt.Println("retry getHeader")
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func getBlockHeaderByNumber(url string, height uint64) (types.Header, error) {
+	reqUrl := fmt.Sprintf("%s/block?height=%d", url, height)
+	resp, err := http.Get(reqUrl)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println(resp.Status)
+		return types.Header{}, errors.New(fmt.Sprintf("response status not wanted:%s", resp.Status))
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		return types.Header{}, err
+	}
+	var r rpctypes.RPCResponse
+	err = r.UnmarshalJSON(body)
+	if err != nil {
+		return types.Header{}, err
+	}
+	var b ctypes.ResultBlock
+	err = json.Unmarshal(r.Result, &b)
+	if err != nil {
+		return types.Header{}, err
+	}
+	fmt.Println(b.Block.Header.Height)
+	return b.Block.Header, nil
 }
 
 func sendRequest(url, bodyStr string) string {
