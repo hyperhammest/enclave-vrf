@@ -45,21 +45,30 @@ const (
 	delayMargin = 4000
 )
 
-type Headers struct {
-	LastHeader tmtypes.Header `json:"last_header"`
-	CurrHeader tmtypes.Header `json:"curr_header"`
+type Params struct {
+	LastHeader tmtypes.Header       `json:"last_header"`
+	CurrBlock  tmtypes.Block        `json:"curr_block"`
+	Validators []*tmtypes.Validator `json:"validators"`
 }
 
-func getDelay(headers Headers, blkHash []byte) int64 {
-	hash := headers.CurrHeader.Hash()
+func (p Params) verify(blkHash []byte) bool {
+	vals := &tmtypes.ValidatorSet{
+		Validators: p.Validators,
+		Proposer:   nil, // not used in Hash() and VerifyCommit()
+	}
+	if !bytes.Equal(vals.Hash(), p.LastHeader.ValidatorsHash) {
+		return false
+	}
+	hash := p.LastHeader.Hash()
+	if !bytes.Equal(hash, p.CurrBlock.LastBlockID.Hash) {
+		return false
+	}
 	if !bytes.Equal(hash, blkHash) {
-		return -1
+		return false
 	}
-	hash = headers.LastHeader.Hash()
-	if !bytes.Equal(hash, headers.CurrHeader.LastBlockID.Hash) {
-		return -1
-	}
-	return (headers.CurrHeader.Time.UnixNano()-headers.LastHeader.Time.UnixNano())/1e6 + delayMargin
+	err := vals.VerifyCommit(p.LastHeader.ChainID, p.CurrBlock.LastBlockID,
+		p.LastHeader.Height, p.CurrBlock.LastCommit)
+	return err == nil
 }
 
 // start slave first, then start master to send key to them
@@ -112,17 +121,15 @@ func main() {
 			w.Write([]byte("failed to read request body"))
 			return
 		}
-		var headers Headers
-		err = json.Unmarshal(body, &headers)
+		var params Params
+		err = json.Unmarshal(body, &params)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("failed to unmarshal headers"))
+			w.Write([]byte("failed to unmarshal params"))
 			return
 		}
 
-		delay := getDelay(headers, hashBytes)
-
-		if delay <= 0 {
+		if !params.verify(hashBytes) {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Invalid Headers"))
 		}
@@ -135,7 +142,7 @@ func main() {
 		}
 		blockHash2Beta[blkHash] = beta
 		blockHash2PI[blkHash] = pi
-		blockHash2Timestamp[blkHash] = getTimestampFromTSC() + delay
+		blockHash2Timestamp[blkHash] = getTimestampFromTSC() + delayMargin
 		blockHashSet = append(blockHashSet, blkHash)
 		clearOldBlockHash()
 		fmt.Printf("%v sent block hash to me %v\n", r.RemoteAddr, r.URL.Query()["b"])
