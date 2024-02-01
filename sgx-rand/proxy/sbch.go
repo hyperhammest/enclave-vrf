@@ -73,16 +73,16 @@ func getLatestBlockNumAndHash(url string) (uint64, string) {
 	return uint64(info.Result.NextBlock.Number), info.Result.NextBlock.Hash[2:]
 }
 
-func getHeader(addrs []string, height uint64) types.Header {
+func getValidators(addrs []string, height uint64) []*types.Validator {
 	for {
 		for _, addr := range addrs {
 			if !strings.Contains(addr, "8545") {
 				continue
 			}
 			addr = strings.ReplaceAll(addr, "8545", "26657")
-			header, err := getBlockHeaderByNumber(addr, height)
+			validators, err := getValidatorsByNumber(addr, height)
 			if err == nil {
-				return header
+				return validators
 			}
 		}
 		fmt.Println("retry getHeader")
@@ -90,31 +90,74 @@ func getHeader(addrs []string, height uint64) types.Header {
 	}
 }
 
-func getBlockHeaderByNumber(url string, height uint64) (types.Header, error) {
+func getValidatorsByNumber(url string, height uint64) ([]*types.Validator, error) {
+	reqUrl := fmt.Sprintf("%s/validators?height=%d", url, height)
+	resp, err := http.Get(reqUrl)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println(resp.Status)
+		return nil, errors.New(fmt.Sprintf("response status not wanted:%s", resp.Status))
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	var r rpctypes.RPCResponse
+	err = r.UnmarshalJSON(body)
+	if err != nil {
+		return nil, err
+	}
+	var b ctypes.ResultValidators
+	err = json.Unmarshal(r.Result, &b)
+	if err != nil {
+		return nil, err
+	}
+	return b.Validators, nil
+}
+
+func getBlock(addrs []string, height uint64) *types.Block {
+	for {
+		for _, addr := range addrs {
+			if !strings.Contains(addr, "8545") {
+				continue
+			}
+			addr = strings.ReplaceAll(addr, "8545", "26657")
+			b, err := getBlockByNumber(addr, height)
+			if err == nil {
+				return b
+			}
+		}
+		fmt.Println("retry getHeader")
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func getBlockByNumber(url string, height uint64) (*types.Block, error) {
 	reqUrl := fmt.Sprintf("%s/block?height=%d", url, height)
 	resp, err := http.Get(reqUrl)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println(resp.Status)
-		return types.Header{}, errors.New(fmt.Sprintf("response status not wanted:%s", resp.Status))
+		return nil, errors.New(fmt.Sprintf("response status not wanted:%s", resp.Status))
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println(err)
-		return types.Header{}, err
+		return nil, err
 	}
 	var r rpctypes.RPCResponse
 	err = r.UnmarshalJSON(body)
 	if err != nil {
-		return types.Header{}, err
+		return nil, err
 	}
 	var b ctypes.ResultBlock
 	err = json.Unmarshal(r.Result, &b)
 	if err != nil {
-		return types.Header{}, err
+		return nil, err
 	}
 	fmt.Println(b.Block.Header.Height)
-	return b.Block.Header, nil
+	return b.Block, nil
 }
 
 func sendRequest(url, bodyStr string) string {

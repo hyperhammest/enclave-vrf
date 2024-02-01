@@ -135,27 +135,35 @@ func getBlockHashAndVRFsAndClearOldData(signer, uniqueID []byte) {
 func getLatest256BlockHash() {
 	if latestBlockNumber != 0 {
 		for i := uint64(1); i <= 256; i++ {
-			hash := getBlockHashByNum(smartBCHAddrList, latestBlockNumber-i)
-			sendBlockHash2SGX(hash, latestBlockNumber-i)
+			//hash := getBlockHashByNum(smartBCHAddrList, latestBlockNumber-i)
+			sendBlockHash2SGX(latestBlockNumber - i)
 		}
 	}
 }
 
-type Headers struct {
-	LastHeader tmtypes.Header `json:"last_header"`
-	CurrHeader tmtypes.Header `json:"curr_header"`
+type Params struct {
+	LastHeader tmtypes.Header       `json:"last_header"`
+	CurrBlock  tmtypes.Block        `json:"curr_block"`
+	Validators []*tmtypes.Validator `json:"validators"`
 }
 
-func sendBlockHash2SGX(blkHash string, height uint64) {
+func sendBlockHash2SGX(height uint64) {
+	lastBlk := getBlock(smartBCHAddrList, height-1)
+	blkHash := lastBlk.Hash().String()
 	blockHash2Time[blkHash] = time.Now().Unix()
 	blockHashSet = append(blockHashSet, blkHash)
 	fmt.Println("send blockHash to sgx-rand")
-	currentHeader := getHeader(smartBCHAddrList, height)
-	lastHeader := getHeader(smartBCHAddrList, height-1)
-	var headers Headers
-	headers.CurrHeader = currentHeader
-	headers.LastHeader = lastHeader
-	jsonBody, err := json.Marshal(headers)
+	var params Params
+	currBlk := getBlock(smartBCHAddrList, height)
+	if lastBlk == nil || currBlk == nil {
+		panic("block must not nil")
+	}
+	params.CurrBlock = *currBlk
+	params.LastHeader = lastBlk.Header
+	// todo: height-1 or height-2 ?
+	vals := getValidators(smartBCHAddrList, height-1)
+	params.Validators = vals
+	jsonBody, err := json.Marshal(params)
 	if err != nil {
 		panic(err)
 	}
@@ -170,14 +178,14 @@ func blockHashConsume() (exist bool) {
 	blkNum, blkHash := getBlockNumAndHash(smartBCHAddrList)
 	fmt.Println(blkHash)
 	latestBlockNumber = blkNum
-	if blockHash2Time[blkHash] != 0 {
+	if blockHash2Height[blkHash] != 0 {
 		time.Sleep(200 * time.Millisecond)
 		fmt.Println("blockHash already exist")
 		return true
 	}
 	fmt.Println("new blockHash")
 	blockHash2Height[blkHash] = blkNum
-	sendBlockHash2SGX(blkHash, blkNum)
+	sendBlockHash2SGX(blkNum)
 	return false
 }
 
