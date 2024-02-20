@@ -11,7 +11,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/edgelesssys/ego/ecrypto"
 	"github.com/smartbch/egvm/keygrantor"
 	tmtypes "github.com/tendermint/tendermint/types"
 	vrf "github.com/vechain/go-ecvrf"
@@ -179,7 +178,7 @@ func main() {
 }
 
 func initConfig() {
-	keyGrantorUrlP := flag.String("g", "0.0.0.0:8084", "keygrantor url")
+	keyGrantorUrlP := flag.String("g", "http://0.0.0.0:8084", "keygrantor url")
 	listenURLP := flag.String("l", "0.0.0.0:8082", "listen address")
 	flag.Parse()
 	listenURL = *listenURLP
@@ -207,12 +206,5 @@ func clearOldBlockHash() {
 }
 
 func sealKeyToFile() {
-	out, err := ecrypto.SealWithUniqueKey(randClient.PrivKey.Serialize(), nil)
-	if err != nil {
-		panic(err)
-	}
-	err = os.WriteFile(keyFile, out, 0600)
-	if err != nil {
-		panic(err)
-	}
+	keygrantor.SealKeyToFile(keyFile, randClient.ExtPrivKey)
 }
