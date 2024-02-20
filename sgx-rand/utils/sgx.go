@@ -49,7 +49,7 @@ func VerifyServer(address string, signer, uniqueID []byte, verifyReport func(rep
 
 	certStr = string(HttpGet(tlsConfig, url+"/cert"))
 	pubkeyStr = string(HttpGet(tlsConfig, url+"/pubkey"))
-	reportStr = string(HttpGet(tlsConfig, url+"/peer-report"))
+	reportStr = string(HttpGet(tlsConfig, url+"/report"))
 
 	certBytes, err = hex.DecodeString(certStr)
 	if err != nil {
