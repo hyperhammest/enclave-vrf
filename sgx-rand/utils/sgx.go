@@ -11,8 +11,9 @@ import (
 	"github.com/edgelesssys/ego/attestation"
 )
 
-func CheckReport(report attestation.Report, certBytes, signer, uniqueID []byte) error {
-	hash := sha256.Sum256(certBytes)
+func CheckReport(report attestation.Report, certBytes, pubkeyBytes, signer, uniqueID []byte) error {
+	certHash := sha256.Sum256(certBytes)
+	hash := append(certHash[:], pubkeyBytes[:]...)
 	if !bytes.Equal(report.Data[:len(hash)], hash[:]) {
 		return errors.New("report data does not match the certificate's hash")
 	}
@@ -34,20 +35,27 @@ func CheckReport(report attestation.Report, certBytes, signer, uniqueID []byte) 
 	return nil
 }
 
-func VerifyServer(address string, signer, uniqueID []byte, verifyReport func(reportBytes, certBytes, signer, uniqueID []byte) error) []byte {
+func VerifyServer(address string, signer, uniqueID []byte, verifyReport func(reportBytes, certBytes, pubkeyHashBytes, signer, uniqueID []byte) error) []byte {
 	url := "https://" + address
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 
 	var certStr string
+	var pubkeyStr string
 	var reportStr string
 	var certBytes []byte
+	var pubkeyHashBytes []byte
 	var reportBytes []byte
 	var err error
 
 	certStr = string(HttpGet(tlsConfig, url+"/cert"))
+	pubkeyStr = string(HttpGet(tlsConfig, url+"/pubkey"))
 	reportStr = string(HttpGet(tlsConfig, url+"/peer-report"))
 
 	certBytes, err = hex.DecodeString(certStr)
+	if err != nil {
+		panic(err)
+	}
+	pubkeyHashBytes, err = hex.DecodeString(pubkeyStr)
 	if err != nil {
 		panic(err)
 	}
@@ -55,7 +63,7 @@ func VerifyServer(address string, signer, uniqueID []byte, verifyReport func(rep
 	if err != nil {
 		panic(err)
 	}
-	if err := verifyReport(reportBytes, certBytes, signer, uniqueID); err != nil {
+	if err := verifyReport(reportBytes, certBytes, pubkeyHashBytes, signer, uniqueID); err != nil {
 		panic(err)
 	}
 	fmt.Printf("verify server:%s passed\n", address)

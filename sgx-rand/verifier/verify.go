@@ -44,7 +44,7 @@ func verifyRandServer() bool {
 	if err != nil {
 		return false
 	}
-	return utils.CheckReport(report, pubkeyBytes, signer, uniqueID) == nil
+	return utils.CheckReport(report, pubkeyBytes, pubkeyBytes, signer, uniqueID) == nil
 }
 
 func parseCmdFlags() {

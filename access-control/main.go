@@ -280,12 +280,12 @@ func generateRandom64Bytes() []byte {
 	return out
 }
 
-func verifyReport(reportBytes, certBytes, signer, uniqueID []byte) error {
+func verifyReport(reportBytes, certBytes, pubkeyHashBytes, signer, uniqueID []byte) error {
 	report, err := enclave.VerifyRemoteReport(reportBytes)
 	if err != nil {
 		return err
 	}
-	return utils.CheckReport(report, certBytes, signer, uniqueID)
+	return utils.CheckReport(report, certBytes, pubkeyHashBytes, signer, uniqueID)
 }
 
 func recoveryPrivateKeyFromFile() {

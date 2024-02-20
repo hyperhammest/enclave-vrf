@@ -301,10 +301,10 @@ func verifyServerAndGetCert(address string, signer, uniqueID []byte) {
 	serverTlsConfig.RootCAs.AddCert(cert)
 }
 
-func verifyReport(reportBytes, certBytes, signer, uniqueID []byte) error {
+func verifyReport(reportBytes, certBytes, pubkeyHashBytes, signer, uniqueID []byte) error {
 	report, err := eclient.VerifyRemoteReport(reportBytes)
 	if err != nil {
 		return err
 	}
-	return utils.CheckReport(report, certBytes, signer, uniqueID)
+	return utils.CheckReport(report, certBytes, pubkeyHashBytes, signer, uniqueID)
 }
