@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	tmjson "github.com/tendermint/tendermint/libs/json"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
 	"github.com/tendermint/tendermint/types"
@@ -69,7 +70,6 @@ func getLatestBlockNumAndHash(url string) (uint64, string) {
 	}
 	var info nodeInfoRes
 	json.Unmarshal([]byte(infoRes), &info)
-	fmt.Println(info.Result.NextBlock.Hash)
 	return uint64(info.Result.NextBlock.Number), info.Result.NextBlock.Hash[2:]
 }
 
@@ -85,7 +85,7 @@ func getValidators(addrs []string, height uint64) []*types.Validator {
 				return validators
 			}
 		}
-		fmt.Println("retry getHeader")
+		fmt.Println("retry getValidators")
 		time.Sleep(10 * time.Second)
 	}
 }
@@ -106,11 +106,13 @@ func getValidatorsByNumber(url string, height uint64) ([]*types.Validator, error
 	var r rpctypes.RPCResponse
 	err = r.UnmarshalJSON(body)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	var b ctypes.ResultValidators
-	err = json.Unmarshal(r.Result, &b)
+	err = tmjson.Unmarshal(r.Result, &b)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	return b.Validators, nil
@@ -128,7 +130,7 @@ func getBlock(addrs []string, height uint64) *types.Block {
 				return b
 			}
 		}
-		fmt.Println("retry getHeader")
+		fmt.Println("retry getBlock")
 		time.Sleep(10 * time.Second)
 	}
 }
@@ -149,14 +151,15 @@ func getBlockByNumber(url string, height uint64) (*types.Block, error) {
 	var r rpctypes.RPCResponse
 	err = r.UnmarshalJSON(body)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	var b ctypes.ResultBlock
-	err = json.Unmarshal(r.Result, &b)
+	err = tmjson.Unmarshal(r.Result, &b)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
-	fmt.Println(b.Block.Header.Height)
 	return b.Block, nil
 }
 

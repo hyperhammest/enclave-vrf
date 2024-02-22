@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/edgelesssys/ego/eclient"
+	tmjson "github.com/tendermint/tendermint/libs/json"
 	tmtypes "github.com/tendermint/tendermint/types"
 
 	"github.com/smartbch/enclave-vrf/sgx-rand/utils"
@@ -149,10 +150,8 @@ type Params struct {
 
 func sendBlockHash2SGX(height uint64) {
 	lastBlk := getBlock(smartBCHAddrList, height-1)
-	blkHash := lastBlk.Hash().String()
-	blockHash2Time[blkHash] = time.Now().Unix()
-	blockHashSet = append(blockHashSet, blkHash)
-	fmt.Println("send blockHash to sgx-rand")
+	blkHash := strings.ToLower(lastBlk.Hash().String())
+	fmt.Printf("blockheight:%d,blockHash:%s\n", height-1, blkHash)
 	var params Params
 	currBlk := getBlock(smartBCHAddrList, height)
 	if lastBlk == nil || currBlk == nil {
@@ -163,28 +162,34 @@ func sendBlockHash2SGX(height uint64) {
 	// todo: height-1 or height-2 ?
 	vals := getValidators(smartBCHAddrList, height-1)
 	params.Validators = vals
-	jsonBody, err := json.Marshal(params)
+	jsonBody, err := tmjson.Marshal(params)
+	if err != nil {
+		panic(err)
+	}
+	var p Params
+	err = tmjson.Unmarshal(jsonBody, &p)
 	if err != nil {
 		panic(err)
 	}
 	bodyReader := bytes.NewReader(jsonBody)
 	//todo: add response verify, make sure blockHash sent to server
 	utils.HttpPost(serverTlsConfig, fmt.Sprintf("https://"+*serverAddr+"/blockhash?b=%s", blkHash), bodyReader)
-	fmt.Println("sent blockHash to sgx-rand")
+	blockHash2Time[blkHash] = time.Now().Unix()
+	blockHashSet = append(blockHashSet, blkHash)
+	fmt.Printf("sent block %d to sgx-rand\n", height-1)
 	blockHashCacheWaitingVrf = append(blockHashCacheWaitingVrf, blkHash)
 }
 
 func blockHashConsume() (exist bool) {
 	blkNum, blkHash := getBlockNumAndHash(smartBCHAddrList)
-	fmt.Println(blkHash)
 	latestBlockNumber = blkNum
 	if blockHash2Height[blkHash] != 0 {
 		time.Sleep(200 * time.Millisecond)
 		fmt.Println("blockHash already exist")
 		return true
 	}
-	fmt.Println("new blockHash")
-	blockHash2Height[blkHash] = blkNum
+	fmt.Printf("new blockheight:%d, blockHash:%s\n", blkNum, blkHash)
+	blockHash2Height[strings.ToLower(blkHash)] = blkNum
 	sendBlockHash2SGX(blkNum)
 	return false
 }

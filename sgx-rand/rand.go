@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/smartbch/egvm/keygrantor"
+	tmjson "github.com/tendermint/tendermint/libs/json"
 	tmtypes "github.com/tendermint/tendermint/types"
 	vrf "github.com/vechain/go-ecvrf"
 )
@@ -121,7 +122,8 @@ func main() {
 			return
 		}
 		var params Params
-		err = json.Unmarshal(body, &params)
+		fmt.Println()
+		err = tmjson.Unmarshal(body, &params)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("failed to unmarshal params"))
