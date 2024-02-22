@@ -86,10 +86,10 @@ func main() {
 	}
 	parseSmartBchAddressList(*smartBCHAddrListArg)
 
-	getBlockHashAndVRFsAndClearOldData(signer, uniqueID)
+	verifyServerAndGetCert(*serverAddr, signer, uniqueID)
+	getBlockHashAndVRFsAndClearOldData()
 
 	initVrfHttpHandlers()
-
 	server := http.Server{Addr: *listenURL, ReadTimeout: 3 * time.Second, WriteTimeout: 5 * time.Second}
 	fmt.Println("listening ...")
 	err = server.ListenAndServeTLS(certFile, keyFile)
@@ -103,8 +103,7 @@ func parseSmartBchAddressList(list string) {
 	}
 }
 
-func getBlockHashAndVRFsAndClearOldData(signer, uniqueID []byte) {
-	verifyServerAndGetCert(*serverAddr, signer, uniqueID)
+func getBlockHashAndVRFsAndClearOldData() {
 	go func() {
 		for {
 			blockHashConsume()
