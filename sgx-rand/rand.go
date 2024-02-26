@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -10,9 +12,12 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartbch/egvm/keygrantor"
 	tmjson "github.com/tendermint/tendermint/libs/json"
+	"github.com/tendermint/tendermint/light"
 	tmtypes "github.com/tendermint/tendermint/types"
 	vrf "github.com/vechain/go-ecvrf"
 )
@@ -23,6 +28,7 @@ import "C"
 type vrfResult struct {
 	PI   string
 	Beta string
+	Sig  []byte
 }
 
 var listenURL string
@@ -37,6 +43,9 @@ var blockHashSet []string
 var lock sync.RWMutex
 var intelCPUFreq int64
 
+var LatestTrustedHeader *tmtypes.SignedHeader
+var blockHash2Height = make(map[string]int64)
+
 const (
 	maxBlockHashCount = 5000
 	serverName        = "SGX-VRF-PUBKEY"
@@ -46,29 +55,32 @@ const (
 )
 
 type Params struct {
-	LastHeader tmtypes.Header       `json:"last_header"`
-	CurrBlock  tmtypes.Block        `json:"curr_block"`
-	Validators []*tmtypes.Validator `json:"validators"`
+	UntrustedHeader tmtypes.SignedHeader  `json:"last_header"`
+	Validators      *tmtypes.ValidatorSet `json:"validators"`
 }
 
 func (p Params) verify(blkHash []byte) bool {
-	vals := &tmtypes.ValidatorSet{
-		Validators: p.Validators,
-		Proposer:   nil, // not used in Hash() and VerifyCommit()
-	}
-	if !bytes.Equal(vals.Hash(), p.LastHeader.ValidatorsHash) {
+	if !bytes.Equal(p.Validators.Hash(), p.UntrustedHeader.ValidatorsHash) {
 		return false
 	}
-	hash := p.LastHeader.Hash()
-	if !bytes.Equal(hash, p.CurrBlock.LastBlockID.Hash) {
-		return false
-	}
+	hash := p.UntrustedHeader.Hash()
 	if !bytes.Equal(hash, blkHash) {
 		return false
 	}
-	err := vals.VerifyCommit(p.LastHeader.ChainID, p.CurrBlock.LastBlockID,
-		p.LastHeader.Height, p.CurrBlock.LastCommit)
-	return err == nil
+	if LatestTrustedHeader == nil {
+		err := p.Validators.VerifyCommit(p.UntrustedHeader.ChainID, p.UntrustedHeader.Commit.BlockID,
+			p.UntrustedHeader.Height, p.UntrustedHeader.Commit)
+		if err != nil {
+			return false
+		}
+		LatestTrustedHeader = &p.UntrustedHeader
+		return true
+	}
+	err := light.VerifyAdjacent(LatestTrustedHeader, &p.UntrustedHeader, p.Validators, 168*time.Hour, time.Now(), 10*time.Second)
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 // start slave first, then start master to send key to them
@@ -143,8 +155,10 @@ func main() {
 		}
 		blockHash2Beta[blkHash] = beta
 		blockHash2PI[blkHash] = pi
+		blockHash2Height[blkHash] = params.UntrustedHeader.Height
 		blockHash2Timestamp[blkHash] = getTimestampFromTSC() + delayMargin
 		blockHashSet = append(blockHashSet, blkHash)
+		LatestTrustedHeader = &params.UntrustedHeader
 		clearOldBlockHash()
 		fmt.Printf("%v sent block hash to me %v\n", r.RemoteAddr, r.URL.Query()["b"])
 	}
@@ -171,6 +185,18 @@ func main() {
 			PI:   hex.EncodeToString(blockHash2PI[blkHash]),
 			Beta: hex.EncodeToString(blockHash2Beta[blkHash]),
 		}
+		var vrfData []byte
+		vrfData = append(vrfData, blockHash2PI[blkHash]...)
+		vrfData = append(vrfData, blockHash2Beta[blkHash]...)
+		var height [8]byte
+		binary.BigEndian.PutUint64(height[:], uint64(blockHash2Height[blkHash]))
+		vrfData = append(vrfData, height[:]...)
+		h := sha256.Sum256(vrfData)
+		sig, err := crypto.Sign(h[:], randClient.PrivKey.ToECDSA())
+		if err != nil {
+			panic(err)
+		}
+		res.Sig = sig
 		out, _ := json.Marshal(res)
 		w.Write(out)
 		return
@@ -200,6 +226,7 @@ func clearOldBlockHash() {
 			delete(blockHash2Timestamp, bh)
 			delete(blockHash2PI, bh)
 			delete(blockHash2Beta, bh)
+			delete(blockHash2Height, bh)
 		}
 		var tmpSet = make([]string, maxBlockHashCount)
 		copy(tmpSet, blockHashSet[nums-maxBlockHashCount:])

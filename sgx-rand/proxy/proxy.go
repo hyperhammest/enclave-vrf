@@ -142,31 +142,23 @@ func getLatest256BlockHash() {
 }
 
 type Params struct {
-	LastHeader tmtypes.Header       `json:"last_header"`
-	CurrBlock  tmtypes.Block        `json:"curr_block"`
-	Validators []*tmtypes.Validator `json:"validators"`
+	UntrustedHeader tmtypes.SignedHeader  `json:"last_header"`
+	Validators      *tmtypes.ValidatorSet `json:"validators"`
 }
 
 func sendBlockHash2SGX(height uint64) {
-	lastBlk := getBlock(smartBCHAddrList, height-1)
-	blkHash := strings.ToLower(lastBlk.Hash().String())
-	fmt.Printf("blockheight:%d,blockHash:%s\n", height-1, blkHash)
+	currBlkHeader := getSignedHeader(smartBCHAddrList, height)
+	blkHash := strings.ToLower(currBlkHeader.Hash().String())
+	fmt.Printf("blockheight:%d,blockHash:%s\n", height, blkHash)
 	var params Params
-	currBlk := getBlock(smartBCHAddrList, height)
-	if lastBlk == nil || currBlk == nil {
+	if currBlkHeader == nil {
 		panic("block must not nil")
 	}
-	params.CurrBlock = *currBlk
-	params.LastHeader = lastBlk.Header
-	// todo: height-1 or height-2 ?
-	vals := getValidators(smartBCHAddrList, height-1)
-	params.Validators = vals
+	params.UntrustedHeader = *currBlkHeader
+	vals := getValidators(smartBCHAddrList, height)
+	valSet, err := tmtypes.ValidatorSetFromExistingValidators(vals)
+	params.Validators = valSet
 	jsonBody, err := tmjson.Marshal(params)
-	if err != nil {
-		panic(err)
-	}
-	var p Params
-	err = tmjson.Unmarshal(jsonBody, &p)
 	if err != nil {
 		panic(err)
 	}
@@ -175,7 +167,7 @@ func sendBlockHash2SGX(height uint64) {
 	utils.HttpPost(serverTlsConfig, fmt.Sprintf("https://"+*serverAddr+"/blockhash?b=%s", blkHash), bodyReader)
 	blockHash2Time[blkHash] = time.Now().Unix()
 	blockHashSet = append(blockHashSet, blkHash)
-	fmt.Printf("sent block %d to sgx-rand\n", height-1)
+	fmt.Printf("sent block %d to sgx-rand\n", height)
 	blockHashCacheWaitingVrf = append(blockHashCacheWaitingVrf, blkHash)
 }
 
