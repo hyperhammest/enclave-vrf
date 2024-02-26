@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -44,11 +46,12 @@ var cert []byte
 var token []byte
 var tokenCacheTimestamp int64
 
-var latestBlockNumber uint64
+var latestHeightSentToRand uint64
 var latestVrfBlockNumber uint64
+var randInitHeight = 1 //todo
 
 const serverName = "SGX-VRF-PUBKEY"
-const maxBlockHashCount = 5000
+const maxBlockHashCount = 500_000
 
 var serverTlsConfig *tls.Config
 
@@ -106,11 +109,17 @@ func parseSmartBchAddressList(list string) {
 func getBlockHashAndVRFsAndClearOldData() {
 	go func() {
 		for {
-			blockHashConsume()
-			fmt.Printf("latest number: %d\n", latestBlockNumber)
-			if len(blockHashSet) < 256 {
-				getLatest256BlockHash()
-				fmt.Printf("blockHash count:%d\n", len(blockHashSet))
+			latestTrustedHeight := getLatestTrustedHeight()
+			latestBlockNumber, _ := getBlockNumAndHash(smartBCHAddrList)
+			fmt.Printf("latest number: %d, latest trusted number from rand-sgx:%d\n", latestBlockNumber, latestTrustedHeight)
+			startHeight := latestTrustedHeight + 1
+			if latestHeightSentToRand == 0 {
+				startHeight = uint64(math.Max(float64(latestTrustedHeight-10000), float64(randInitHeight+1)))
+			} else if latestHeightSentToRand < latestTrustedHeight {
+				startHeight = latestHeightSentToRand + 1
+			}
+			for i := startHeight; i <= latestBlockNumber; i++ {
+				sendBlockHash2SGX(i)
 			}
 			getVrf()
 			if len(blockHashSet) > maxBlockHashCount*1.5 {
@@ -127,18 +136,9 @@ func getBlockHashAndVRFsAndClearOldData() {
 				blockHashSet = tmpSet
 			}
 			time.Sleep(200 * time.Millisecond)
-			fmt.Println("next loop for getting blockHash")
+			fmt.Println("next loop for getting new block and vrf result")
 		}
 	}()
-}
-
-func getLatest256BlockHash() {
-	if latestBlockNumber != 0 {
-		for i := uint64(1); i <= 256; i++ {
-			//hash := getBlockHashByNum(smartBCHAddrList, latestBlockNumber-i)
-			sendBlockHash2SGX(latestBlockNumber - i)
-		}
-	}
 }
 
 type Params struct {
@@ -166,23 +166,11 @@ func sendBlockHash2SGX(height uint64) {
 	//todo: add response verify, make sure blockHash sent to server
 	utils.HttpPost(serverTlsConfig, fmt.Sprintf("https://"+*serverAddr+"/blockhash?b=%s", blkHash), bodyReader)
 	blockHash2Time[blkHash] = time.Now().Unix()
+	blockHash2Height[strings.ToLower(blkHash)] = height
 	blockHashSet = append(blockHashSet, blkHash)
+	latestHeightSentToRand = height
 	fmt.Printf("sent block %d to sgx-rand\n", height)
 	blockHashCacheWaitingVrf = append(blockHashCacheWaitingVrf, blkHash)
-}
-
-func blockHashConsume() (exist bool) {
-	blkNum, blkHash := getBlockNumAndHash(smartBCHAddrList)
-	latestBlockNumber = blkNum
-	if blockHash2Height[blkHash] != 0 {
-		time.Sleep(200 * time.Millisecond)
-		fmt.Println("blockHash already exist")
-		return true
-	}
-	fmt.Printf("new blockheight:%d, blockHash:%s\n", blkNum, blkHash)
-	blockHash2Height[strings.ToLower(blkHash)] = blkNum
-	sendBlockHash2SGX(blkNum)
-	return false
 }
 
 func getVrf() {
@@ -205,6 +193,11 @@ func getVrf() {
 		}
 	}
 	blockHashCacheWaitingVrf = newCache
+}
+
+func getLatestTrustedHeight() uint64 {
+	res := utils.HttpGet(serverTlsConfig, fmt.Sprintf("https://"+*serverAddr+"/height"))
+	return binary.BigEndian.Uint64(res)
 }
 
 func enableCors(w *http.ResponseWriter) {

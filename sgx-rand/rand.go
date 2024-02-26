@@ -36,15 +36,19 @@ var keyGrantorUrl string
 
 var randClient *keygrantor.SimpleClient
 
-var blockHash2Beta = make(map[string][]byte)
-var blockHash2PI = make(map[string][]byte)
-var blockHash2Timestamp = make(map[string]int64)
+type vrfInfo struct {
+	Beta      []byte
+	Pi        []byte
+	Timestamp int64
+	Height    int64
+}
+
+var blockHash2VrfInfo = make(map[string]vrfInfo)
 var blockHashSet []string
 var lock sync.RWMutex
 var intelCPUFreq int64
 
 var LatestTrustedHeader *tmtypes.SignedHeader
-var blockHash2Height = make(map[string]int64)
 
 const (
 	maxBlockHashCount = 5000
@@ -67,20 +71,20 @@ func (p Params) verify(blkHash []byte) bool {
 	if !bytes.Equal(hash, blkHash) {
 		return false
 	}
-	if LatestTrustedHeader == nil {
-		err := p.Validators.VerifyCommit(p.UntrustedHeader.ChainID, p.UntrustedHeader.Commit.BlockID,
-			p.UntrustedHeader.Height, p.UntrustedHeader.Commit)
-		if err != nil {
-			return false
-		}
-		LatestTrustedHeader = &p.UntrustedHeader
-		return true
-	}
 	err := light.VerifyAdjacent(LatestTrustedHeader, &p.UntrustedHeader, p.Validators, 168*time.Hour, time.Now(), 10*time.Second)
 	if err != nil {
 		return false
 	}
 	return true
+}
+
+func initLatestTrustedHeader() {
+	//todo: recovery LatestTrustedHeader from file, if err hit, set LatestTrustedHeader from initial json string.
+	initHeaderStr := ""
+	err := tmjson.Unmarshal([]byte(initHeaderStr), LatestTrustedHeader)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // start slave first, then start master to send key to them
@@ -102,7 +106,13 @@ func main() {
 	} else {
 		randClient.InitKeys(keyFile, [32]byte{}, true)
 	}
+	initLatestTrustedHeader()
 	handlers := make(map[string]func(w http.ResponseWriter, r *http.Request))
+	handlers["/height"] = func(w http.ResponseWriter, r *http.Request) {
+		var height [8]byte
+		binary.BigEndian.PutUint64(height[:], uint64(LatestTrustedHeader.Height))
+		w.Write(height[:])
+	}
 	handlers["/blockhash"] = func(w http.ResponseWriter, r *http.Request) {
 		if len(randClient.PubKeyBz) == 0 {
 			return
@@ -115,7 +125,7 @@ func main() {
 		lock.Lock()
 		defer lock.Unlock()
 
-		if blockHash2Timestamp[blkHash] != 0 {
+		if blockHash2VrfInfo[blkHash].Timestamp != 0 {
 			w.Write([]byte("this blockhash already here"))
 			return
 		}
@@ -153,10 +163,12 @@ func main() {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		blockHash2Beta[blkHash] = beta
-		blockHash2PI[blkHash] = pi
-		blockHash2Height[blkHash] = params.UntrustedHeader.Height
-		blockHash2Timestamp[blkHash] = getTimestampFromTSC() + delayMargin
+		blockHash2VrfInfo[blkHash] = vrfInfo{
+			Beta:      beta,
+			Pi:        pi,
+			Timestamp: getTimestampFromTSC() + delayMargin,
+			Height:    params.UntrustedHeader.Height,
+		}
 		blockHashSet = append(blockHashSet, blkHash)
 		LatestTrustedHeader = &params.UntrustedHeader
 		clearOldBlockHash()
@@ -172,7 +184,7 @@ func main() {
 		lock.RLock()
 		defer lock.RUnlock()
 
-		vrfTimestamp := blockHash2Timestamp[blkHash]
+		vrfTimestamp := blockHash2VrfInfo[blkHash].Timestamp
 		if vrfTimestamp == 0 {
 			w.Write([]byte("not has this blockhash"))
 			return
@@ -181,15 +193,16 @@ func main() {
 			w.Write([]byte("please get vrf later, the blockhash not mature"))
 			return
 		}
+		vrfInfo := blockHash2VrfInfo[blkHash]
 		res := vrfResult{
-			PI:   hex.EncodeToString(blockHash2PI[blkHash]),
-			Beta: hex.EncodeToString(blockHash2Beta[blkHash]),
+			PI:   hex.EncodeToString(vrfInfo.Pi),
+			Beta: hex.EncodeToString(vrfInfo.Beta),
 		}
 		var vrfData []byte
-		vrfData = append(vrfData, blockHash2PI[blkHash]...)
-		vrfData = append(vrfData, blockHash2Beta[blkHash]...)
+		vrfData = append(vrfData, vrfInfo.Pi...)
+		vrfData = append(vrfData, vrfInfo.Beta...)
 		var height [8]byte
-		binary.BigEndian.PutUint64(height[:], uint64(blockHash2Height[blkHash]))
+		binary.BigEndian.PutUint64(height[:], uint64(vrfInfo.Height))
 		vrfData = append(vrfData, height[:]...)
 		h := sha256.Sum256(vrfData)
 		sig, err := crypto.Sign(h[:], randClient.PrivKey.ToECDSA())
@@ -223,10 +236,7 @@ func clearOldBlockHash() {
 	nums := len(blockHashSet)
 	if nums > maxBlockHashCount*1.5 {
 		for _, bh := range blockHashSet[:nums-maxBlockHashCount] {
-			delete(blockHash2Timestamp, bh)
-			delete(blockHash2PI, bh)
-			delete(blockHash2Beta, bh)
-			delete(blockHash2Height, bh)
+			delete(blockHash2VrfInfo, bh)
 		}
 		var tmpSet = make([]string, maxBlockHashCount)
 		copy(tmpSet, blockHashSet[nums-maxBlockHashCount:])
