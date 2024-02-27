@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -28,7 +27,9 @@ import "C"
 type vrfResult struct {
 	PI   string
 	Beta string
-	Sig  []byte
+	S    [32]byte
+	R    [32]byte
+	V    byte
 }
 
 var listenURL string
@@ -198,18 +199,21 @@ func main() {
 			PI:   hex.EncodeToString(vrfInfo.Pi),
 			Beta: hex.EncodeToString(vrfInfo.Beta),
 		}
+		//keccak256(abi.encodePacked(PREFIX, randSeedBlock, rdm)
 		var vrfData []byte
-		vrfData = append(vrfData, vrfInfo.Pi...)
-		vrfData = append(vrfData, vrfInfo.Beta...)
+		vrfData = append(vrfData, []byte("\x19Ethereum Signed Message:\n40")...)
 		var height [8]byte
 		binary.BigEndian.PutUint64(height[:], uint64(vrfInfo.Height))
 		vrfData = append(vrfData, height[:]...)
-		h := sha256.Sum256(vrfData)
+		vrfData = append(vrfData, blkHash...)
+		h := crypto.Keccak256Hash(vrfData)
 		sig, err := crypto.Sign(h[:], randClient.PrivKey.ToECDSA())
 		if err != nil {
 			panic(err)
 		}
-		res.Sig = sig
+		copy(res.S[:], sig[:32])
+		copy(res.R[:], sig[32:64])
+		res.V = sig[64]
 		out, _ := json.Marshal(res)
 		w.Write(out)
 		return
