@@ -292,7 +292,7 @@ func main() {
 			return
 		}
 		vrfData = append(vrfData, blockHash...)
-		h := crypto.Keccak256Hash(vrfData)
+		h := crypto.Keccak256(vrfData)
 		sig, err := crypto.Sign(h[:], randClient.PrivKey.ToECDSA())
 		if err != nil {
 			panic(err)
@@ -300,6 +300,11 @@ func main() {
 		res.R = hex.EncodeToString(sig[:32])
 		res.S = hex.EncodeToString(sig[32:64])
 		res.V = sig[64] + 27
+		//		fmt.Printf(`
+		//vrfData:%s,
+		//hash:%s,
+		//sig:%s
+		//`, hex.EncodeToString(vrfData), hex.EncodeToString(h[:]), hex.EncodeToString(sig))
 		out, _ := json.Marshal(res)
 		w.Write(out)
 		return
