@@ -29,6 +29,7 @@ var serverAddr *string
 var smartBCHAddrList []string
 
 var vrfPubkey string
+var vrfAddress string
 
 var blockHashSet []string
 var blockHash2Time = make(map[string]int64)
@@ -48,10 +49,11 @@ var tokenCacheTimestamp int64
 
 var latestHeightSentToRand uint64
 var latestVrfBlockNumber uint64
-var randInitHeight = 1 //todo
+var randInitHeight = 14023800
 
 const serverName = "SGX-VRF-PUBKEY"
 const maxBlockHashCount = 500_000
+const prevFetchNum = 1000
 
 var serverTlsConfig *tls.Config
 
@@ -114,7 +116,7 @@ func getBlockHashAndVRFsAndClearOldData() {
 			fmt.Printf("latest number: %d, latest trusted number from rand-sgx:%d\n", latestBlockNumber, latestTrustedHeight)
 			startHeight := latestTrustedHeight + 1
 			if latestHeightSentToRand == 0 {
-				startHeight = uint64(math.Max(float64(latestTrustedHeight-10000), float64(randInitHeight+1)))
+				startHeight = uint64(math.Max(float64(latestTrustedHeight-prevFetchNum), float64(randInitHeight+1)))
 			} else if latestHeightSentToRand < latestTrustedHeight {
 				startHeight = latestHeightSentToRand + 1
 			}
@@ -215,7 +217,15 @@ func initVrfHttpHandlers() {
 		}
 		return
 	})
-
+	http.HandleFunc("/address", func(w http.ResponseWriter, r *http.Request) {
+		enableCors(&w)
+		if len(vrfAddress) == 0 {
+			vrfAddress = string(utils.HttpGet(serverTlsConfig, fmt.Sprintf("https://"+*serverAddr+"/address")))
+		}
+		if len(vrfAddress) != 0 {
+			_, _ = w.Write([]byte(vrfAddress))
+		}
+	})
 	http.HandleFunc("/vrf", func(w http.ResponseWriter, r *http.Request) {
 		enableCors(&w)
 		hash := r.URL.Query()["b"]

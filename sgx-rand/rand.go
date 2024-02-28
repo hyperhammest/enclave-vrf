@@ -27,8 +27,8 @@ import "C"
 type vrfResult struct {
 	PI   string
 	Beta string
-	S    [32]byte
-	R    [32]byte
+	S    string
+	R    string
 	V    byte
 }
 
@@ -49,10 +49,10 @@ var blockHashSet []string
 var lock sync.RWMutex
 var intelCPUFreq int64
 
-var LatestTrustedHeader *tmtypes.SignedHeader
+var LatestTrustedHeader tmtypes.SignedHeader
 
 const (
-	maxBlockHashCount = 5000
+	maxBlockHashCount = 50_000
 	serverName        = "SGX-VRF-PUBKEY"
 	// IntelCPUFreq /proc/cpuinfo model name
 	keyFile     = "/data/key.txt"
@@ -72,7 +72,7 @@ func (p Params) verify(blkHash []byte) bool {
 	if !bytes.Equal(hash, blkHash) {
 		return false
 	}
-	err := light.VerifyAdjacent(LatestTrustedHeader, &p.UntrustedHeader, p.Validators, 168*time.Hour, time.Now(), 10*time.Second)
+	err := light.VerifyAdjacent(&LatestTrustedHeader, &p.UntrustedHeader, p.Validators, 168*time.Hour, time.Now(), 10*time.Second)
 	if err != nil {
 		return false
 	}
@@ -81,8 +81,88 @@ func (p Params) verify(blkHash []byte) bool {
 
 func initLatestTrustedHeader() {
 	//todo: recovery LatestTrustedHeader from file, if err hit, set LatestTrustedHeader from initial json string.
-	initHeaderStr := ""
-	err := tmjson.Unmarshal([]byte(initHeaderStr), LatestTrustedHeader)
+	initHeaderStr := `{
+      "header": {
+        "version": {
+          "block": "11"
+        },
+        "chain_id": "0x2710",
+        "height": "14023800",
+        "time": "2024-02-28T01:28:28.666558359Z",
+        "last_block_id": {
+          "hash": "CCF603962753CC55EACE77184AC3B336A377AB77777DCF2137624F6139862245",
+          "parts": {
+            "total": 1,
+            "hash": "5C4E745143F435B46E40CE590298503ADC2191C5C172C5F33059EBF2CB702CCE"
+          }
+        },
+        "last_commit_hash": "80432E77ED19D72E009F432EC397C505A0F77F9524C7E9BF303FF7DFC912D44E",
+        "data_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+        "validators_hash": "287F01AC202D20C8A88EE89CFA51D303DA11BEFA7FB69C147EDA69D98B112114",
+        "next_validators_hash": "287F01AC202D20C8A88EE89CFA51D303DA11BEFA7FB69C147EDA69D98B112114",
+        "consensus_hash": "DB82A3E5EC7A0994F3B78B258907CFF68320368782642AA9255985A28C938678",
+        "app_hash": "43204A49FAB84A746968319C6C048F4F8F3155F077156574B7C34CB65A96C4CD",
+        "last_results_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+        "evidence_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+        "proposer_address": "A928A5794D9852389FF572B1941A672274C6C44A"
+      },
+      "commit": {
+        "height": "14023800",
+        "round": 0,
+        "block_id": {
+          "hash": "1421BE28F1022930408F2E7A80B4357767D1630BA2409027A31A8CEEA2914E67",
+          "parts": {
+            "total": 1,
+            "hash": "BC642D9832BB3C83E914A002CB700DE539087A8B47CCF51FEC5AD2BEE01B2036"
+          }
+        },
+        "signatures": [
+          {
+            "block_id_flag": 2,
+            "validator_address": "2FEB93041FC652B1326A2F07BAEC5CAA8D2353A9",
+            "timestamp": "2024-02-28T01:28:34.446377066Z",
+            "signature": "oMWhOhIa/KinACL8WB4k4CBVraP27Q1aJG3htBo6+PK7R5UWIZuRhjcLsJKgAnwy1El7otFLXhxIFvs0qS1kBA=="
+          },
+          {
+            "block_id_flag": 2,
+            "validator_address": "32E716DAA7C8C2A8AF5759BDB2DF28DF74BBF627",
+            "timestamp": "2024-02-28T01:28:34.45912977Z",
+            "signature": "E6fxOZgVmqKp5i7NPp8d+3/DKQZaXb04srK0zeaPguFzHd5b17niMiWeTNUml6N20nab2Gro2FBLp1XtvBlCDw=="
+          },
+          {
+            "block_id_flag": 2,
+            "validator_address": "930C23CE7536B0EDE6AFE7754134D4011217D6AA",
+            "timestamp": "2024-02-28T01:28:34.436589239Z",
+            "signature": "tglqGp0j8HtqIkvc5Ay3RlaLL3hdtAMRKObPEzYGy/d7SDFiasDKcongVjah3/qEGIx6/mzP5hs/F4ib78j6BA=="
+          },
+          {
+            "block_id_flag": 2,
+            "validator_address": "A928A5794D9852389FF572B1941A672274C6C44A",
+            "timestamp": "2024-02-28T01:28:34.399912288Z",
+            "signature": "+RGSayVLaNQYKcUpt0leSkruNsHRIQjDjIpQvlVFoVvOJL93rV+25pmjiTyfg2rhRlVLgMy+EALO8ZG58AnLBw=="
+          },
+          {
+            "block_id_flag": 2,
+            "validator_address": "F22A003226B2221B00906C7435C2EB582223C5C2",
+            "timestamp": "2024-02-28T01:28:34.442114711Z",
+            "signature": "aNTmDqq7DrZZosZvEBt1SQnbJA/Auot55sJ0PwvZGRnXCLDqbYfbb2YYnRryUiLBrsEX9cgoEOANoUKqINxsAg=="
+          },
+          {
+            "block_id_flag": 2,
+            "validator_address": "FAC3A668D5BED3DDBD854B647E3113946BE3306A",
+            "timestamp": "2024-02-28T01:28:34.493749796Z",
+            "signature": "6AxscUV2EYC3NPJf5nRTQ7K9J5vhqi3csYXFanD1IoA2iq+i+C3rYYZdylMd2FY4lAFUVNgJ6zZvp9AS0SNwDw=="
+          },
+          {
+            "block_id_flag": 2,
+            "validator_address": "FD46D618D0CD459F791F44D9C6E54302658AD142",
+            "timestamp": "2024-02-28T01:28:34.485791846Z",
+            "signature": "UzxxjQinVggTRv9EkRu0JbuqfIG3CAvxMl5v6KtOvsvGYdlk2p8+fu1+QjJLQ4gXmIz5MfxADMiHSbaHGao2Cw=="
+          }
+        ]
+      }
+    }`
+	err := tmjson.Unmarshal([]byte(initHeaderStr), &LatestTrustedHeader)
 	if err != nil {
 		panic(err)
 	}
@@ -171,7 +251,7 @@ func main() {
 			Height:    params.UntrustedHeader.Height,
 		}
 		blockHashSet = append(blockHashSet, blkHash)
-		LatestTrustedHeader = &params.UntrustedHeader
+		LatestTrustedHeader = params.UntrustedHeader
 		clearOldBlockHash()
 		fmt.Printf("%v sent block hash to me %v\n", r.RemoteAddr, r.URL.Query()["b"])
 	}
@@ -211,12 +291,16 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		copy(res.S[:], sig[:32])
-		copy(res.R[:], sig[32:64])
-		res.V = sig[64]
+		res.R = hex.EncodeToString(sig[:32])
+		res.S = hex.EncodeToString(sig[32:64])
+		res.V = sig[64] + 27
 		out, _ := json.Marshal(res)
 		w.Write(out)
 		return
+	}
+	handlers["/address"] = func(w http.ResponseWriter, r *http.Request) {
+		address := crypto.PubkeyToAddress(randClient.PrivKey.ToECDSA().PublicKey)
+		w.Write([]byte(address.String()))
 	}
 	go randClient.CreateAndStartHttpsServer(serverName, listenURL, handlers)
 	select {}
