@@ -49,7 +49,7 @@ var tokenCacheTimestamp int64
 
 var latestHeightSentToRand uint64
 var latestVrfBlockNumber uint64
-var randInitHeight = 14023800
+var randInitHeight = 14028518
 
 const serverName = "SGX-VRF-PUBKEY"
 const maxBlockHashCount = 500_000
