@@ -285,7 +285,13 @@ func main() {
 		var height [8]byte
 		binary.BigEndian.PutUint64(height[:], uint64(vrfInfo.Height))
 		vrfData = append(vrfData, height[:]...)
-		vrfData = append(vrfData, blkHash...)
+		var blockHash []byte
+		blockHash, err = hex.DecodeString(blkHash)
+		if err != nil {
+			w.Write([]byte("Invalid block hash format"))
+			return
+		}
+		vrfData = append(vrfData, blockHash...)
 		h := crypto.Keccak256Hash(vrfData)
 		sig, err := crypto.Sign(h[:], randClient.PrivKey.ToECDSA())
 		if err != nil {
