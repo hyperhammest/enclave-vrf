@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edgelesssys/ego/ecrypto"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartbch/egvm/keygrantor"
 	tmjson "github.com/tendermint/tendermint/libs/json"
@@ -50,6 +51,7 @@ var lock sync.RWMutex
 var intelCPUFreq int64
 
 var LatestTrustedHeader tmtypes.SignedHeader
+var latestStoreHeaderTimestamp int64
 
 const (
 	maxBlockHashCount = 50_000
@@ -57,6 +59,7 @@ const (
 	// IntelCPUFreq /proc/cpuinfo model name
 	keyFile     = "/data/key.txt"
 	delayMargin = 4000
+	headerFile  = "/data/header.txt"
 )
 
 type Params struct {
@@ -80,7 +83,10 @@ func (p Params) verify(blkHash []byte) bool {
 }
 
 func initLatestTrustedHeader() {
-	//todo: recovery LatestTrustedHeader from file, if err hit, set LatestTrustedHeader from initial json string.
+	fileExist := recoveryLatestTrustedHeaderFromFile()
+	if fileExist {
+		return
+	}
 	initHeaderStr := `{
       "header": {
         "version": {
@@ -188,6 +194,7 @@ func main() {
 		randClient.InitKeys(keyFile, [32]byte{}, true)
 	}
 	initLatestTrustedHeader()
+	latestStoreHeaderTimestamp = getTimestampFromTSC()
 	handlers := make(map[string]func(w http.ResponseWriter, r *http.Request))
 	handlers["/height"] = func(w http.ResponseWriter, r *http.Request) {
 		var height [8]byte
@@ -244,14 +251,19 @@ func main() {
 			w.Write([]byte(err.Error()))
 			return
 		}
+		now := getTimestampFromTSC()
 		blockHash2VrfInfo[blkHash] = vrfInfo{
 			Beta:      beta,
 			Pi:        pi,
-			Timestamp: getTimestampFromTSC() + delayMargin,
+			Timestamp: now + delayMargin,
 			Height:    params.UntrustedHeader.Height,
 		}
 		blockHashSet = append(blockHashSet, blkHash)
 		LatestTrustedHeader = params.UntrustedHeader
+		if now >= latestStoreHeaderTimestamp+3600000 {
+			sealLatestTrustedHeaderToFile()
+			latestStoreHeaderTimestamp = now
+		}
 		clearOldBlockHash()
 		fmt.Printf("%v sent block hash to me %v\n", r.RemoteAddr, r.URL.Query()["b"])
 	}
@@ -339,4 +351,40 @@ func clearOldBlockHash() {
 
 func sealKeyToFile() {
 	keygrantor.SealKeyToFile(keyFile, randClient.ExtPrivKey)
+}
+
+func recoveryLatestTrustedHeaderFromFile() (fileExist bool) {
+	fileData, err := os.ReadFile(headerFile)
+	if err != nil {
+		fmt.Printf("read file failed, %s\n", err.Error())
+		if os.IsNotExist(err) {
+			return false
+		}
+		panic(err)
+	}
+	rawData, err := ecrypto.Unseal(fileData, nil)
+	if err != nil {
+		fmt.Printf("unseal file data failed, %s\n", err.Error())
+		panic(err)
+	}
+	err = tmjson.Unmarshal(rawData, &LatestTrustedHeader)
+	if err != nil {
+		panic(err)
+	}
+	return true
+}
+
+func sealLatestTrustedHeaderToFile() {
+	bz, err := tmjson.Marshal(LatestTrustedHeader)
+	if err != nil {
+		panic(err)
+	}
+	out, err := ecrypto.SealWithUniqueKey(bz, nil)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(headerFile, out, 0600)
+	if err != nil {
+		panic(err)
+	}
 }
