@@ -269,7 +269,7 @@ func main() {
 		}
 		blockHashSet = append(blockHashSet, blkHash)
 		LatestTrustedHeader = params.UntrustedHeader
-		if now >= latestStoreHeaderTimestamp+1800000 {
+		if now >= latestStoreHeaderTimestamp+18000 {
 			sealLatestTrustedHeaderToFile()
 			latestStoreHeaderTimestamp = now
 		}
