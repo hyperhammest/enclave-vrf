@@ -54,7 +54,7 @@ var LatestTrustedHeader tmtypes.SignedHeader
 var latestStoreHeaderTimestamp int64
 
 const (
-	maxBlockHashCount = 5_000
+	maxBlockHashCount = 2_000
 	serverName        = "SGX-VRF-PUBKEY"
 	// IntelCPUFreq /proc/cpuinfo model name
 	keyFile     = "/data/key.txt"
