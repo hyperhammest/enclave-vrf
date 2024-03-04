@@ -39,15 +39,17 @@ uint64_t get_tsc()
     uint64_t a, d;
     asm volatile("rdtsc" : "=a"(a), "=d"(d));
     return (d << 32) | a;
-    return 0;
 }
 
 
 int getFreq(void) {
     unsigned int eax, ebx, ecx, edx;
-    __get_cpuid(0x16, &eax, &ebx, &ecx, &edx);
+    int res;
+    res = __get_cpuid(0x16, &eax, &ebx, &ecx, &edx);
+    if (res == 0) {
+        return 0;
+    }
     return eax;
-    return 0;
 }
 
 

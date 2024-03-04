@@ -39,6 +39,7 @@ var vrfLock sync.RWMutex
 var blockHash2VrfResult = make(map[string]string)
 
 var blockHashCacheWaitingVrf []string
+var cacheLock sync.RWMutex
 
 var report []byte
 var reportCacheTimestamp int64
@@ -49,7 +50,7 @@ var tokenCacheTimestamp int64
 
 var latestHeightSentToRand uint64
 var latestVrfBlockNumber uint64
-var randInitHeight = 14028518
+var randInitHeight = 14099517
 
 const serverName = "SGX-VRF-PUBKEY"
 const maxBlockHashCount = 500_000
@@ -123,7 +124,6 @@ func getBlockHashAndVRFsAndClearOldData() {
 			for i := startHeight; i <= latestBlockNumber; i++ {
 				sendBlockHash2SGX(i)
 			}
-			getVrf()
 			if len(blockHashSet) > maxBlockHashCount*1.5 {
 				fmt.Println("clear blockHashSet")
 				for _, hash := range blockHashSet[:len(blockHashSet)-maxBlockHashCount] {
@@ -139,6 +139,12 @@ func getBlockHashAndVRFsAndClearOldData() {
 			}
 			time.Sleep(200 * time.Millisecond)
 			fmt.Println("next loop for getting new block and vrf result")
+		}
+	}()
+	go func() {
+		for {
+			getVrf()
+			time.Sleep(200 * time.Millisecond)
 		}
 	}()
 }
@@ -172,13 +178,19 @@ func sendBlockHash2SGX(height uint64) {
 	blockHashSet = append(blockHashSet, blkHash)
 	latestHeightSentToRand = height
 	fmt.Printf("sent block %d to sgx-rand\n", height)
+	cacheLock.Lock()
 	blockHashCacheWaitingVrf = append(blockHashCacheWaitingVrf, blkHash)
+	cacheLock.Unlock()
 }
 
 func getVrf() {
 	var newCache []string
 	now := time.Now().Unix()
-	for _, blkHash := range blockHashCacheWaitingVrf {
+	cacheLock.Lock()
+	cache := blockHashCacheWaitingVrf
+	blockHashCacheWaitingVrf = nil
+	cacheLock.Unlock()
+	for _, blkHash := range cache {
 		if blockHash2Time[blkHash]+5 >= now {
 			newCache = append(newCache, blkHash)
 			continue
@@ -194,12 +206,20 @@ func getVrf() {
 			newCache = append(newCache, blkHash)
 		}
 	}
-	blockHashCacheWaitingVrf = newCache
+	cacheLock.Lock()
+	blockHashCacheWaitingVrf = append(blockHashCacheWaitingVrf, newCache...)
+	cacheLock.Unlock()
 }
 
 func getLatestTrustedHeight() uint64 {
-	res := utils.HttpGet(serverTlsConfig, fmt.Sprintf("https://"+*serverAddr+"/height"))
-	return binary.BigEndian.Uint64(res)
+	for {
+		res := utils.HttpGet(serverTlsConfig, fmt.Sprintf("https://"+*serverAddr+"/height"))
+		if len(res) == 8 {
+			return binary.BigEndian.Uint64(res)
+		}
+		time.Sleep(1 * time.Second)
+		fmt.Println("try to get height from sgx-rand again!")
+	}
 }
 
 func enableCors(w *http.ResponseWriter) {

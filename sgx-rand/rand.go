@@ -54,7 +54,7 @@ var LatestTrustedHeader tmtypes.SignedHeader
 var latestStoreHeaderTimestamp int64
 
 const (
-	maxBlockHashCount = 50_000
+	maxBlockHashCount = 5_000
 	serverName        = "SGX-VRF-PUBKEY"
 	// IntelCPUFreq /proc/cpuinfo model name
 	keyFile     = "/data/key.txt"
@@ -93,77 +93,83 @@ func initLatestTrustedHeader() {
           "block": "11"
         },
         "chain_id": "0x2710",
-        "height": "14028518",
-        "time": "2024-02-28T09:02:23.475693096Z",
+        "height": "14099517",
+        "time": "2024-03-04T04:13:21.304177301Z",
         "last_block_id": {
-          "hash": "54D3F907F0AE0F2C2376A723EE11883429059B25B57D743C50D0D1A5C63B2D69",
+          "hash": "084300657CB6277550ED194D2934D6C13FC8AA598804670431EF231AB00A4CB7",
           "parts": {
             "total": 1,
-            "hash": "60C6BB70A5DA4104AA02B84CEF8FF6F6B08528699691F440D87C6226F5D8F34C"
+            "hash": "A1BA82DD3DC06CE2E9F2BBDEE1D456BFED7B983C2DBD2C942AD1C317031DF25C"
           }
         },
-        "last_commit_hash": "4F04A7F3C3326811114412B1E3C0D0DD588D88C512AEFF974B2D215984C3D434",
+        "last_commit_hash": "5150B4DC110E32A560A69C47925A810DEB7D388862E8C1C0663B38CC39819F96",
         "data_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
-        "validators_hash": "287F01AC202D20C8A88EE89CFA51D303DA11BEFA7FB69C147EDA69D98B112114",
-        "next_validators_hash": "287F01AC202D20C8A88EE89CFA51D303DA11BEFA7FB69C147EDA69D98B112114",
+        "validators_hash": "BB17790D9CC8E02C45E70307BEF1B80A7E5F635705B1421975565AFB5C9DC5BF",
+        "next_validators_hash": "BB17790D9CC8E02C45E70307BEF1B80A7E5F635705B1421975565AFB5C9DC5BF",
         "consensus_hash": "DB82A3E5EC7A0994F3B78B258907CFF68320368782642AA9255985A28C938678",
-        "app_hash": "F90EBA285576CB736954E6416D8CBC15EEA2C3BDA4F74AB39F38DBF0D807B6B1",
+        "app_hash": "F20D1D2F8A6FB3694CF04323D6C54D3DF5F2314BC391783FFCFD359857C8B747",
         "last_results_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
         "evidence_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
-        "proposer_address": "A928A5794D9852389FF572B1941A672274C6C44A"
+        "proposer_address": "930C23CE7536B0EDE6AFE7754134D4011217D6AA"
       },
       "commit": {
-        "height": "14028518",
+        "height": "14099517",
         "round": 0,
         "block_id": {
-          "hash": "F02172AAEAA3A42979B7BAC229A89F4994DF7A42D4B221CB18E8E5C874BFFFE1",
+          "hash": "F21EF2D1D47D85E80DC28ED472CF018FC64CF1D74463021EC0318F5C636EC74D",
           "parts": {
             "total": 1,
-            "hash": "1E16BE24C6E5414D87334A46BE97B3ED1DE4A1AE448324B05416177555AF06EC"
+            "hash": "BD4FF9D662BE87C2C9997200BA02BF951672711242D72A0F2D8533B0758ED93D"
           }
         },
         "signatures": [
           {
             "block_id_flag": 2,
             "validator_address": "2FEB93041FC652B1326A2F07BAEC5CAA8D2353A9",
-            "timestamp": "2024-02-28T09:02:29.127538552Z",
-            "signature": "EgAB9GaOBWa2FIGTLDhFF8i1jWumRxCVxp66+BXeA9voZWys+B2Qhi3Vu70KxmJIQXqzD6Z2RDEk/k+s+s0SCA=="
+            "timestamp": "2024-03-04T04:13:27.065227089Z",
+            "signature": "GftyuTCa7s8Hf/MsrU+MCFcik2daGjsjQTgVJR9MjiVO6ebkHNglgK0+gMV8OMxoKuCY18dV036/CaCxyJ7WAA=="
           },
           {
             "block_id_flag": 2,
             "validator_address": "32E716DAA7C8C2A8AF5759BDB2DF28DF74BBF627",
-            "timestamp": "2024-02-28T09:02:29.135788679Z",
-            "signature": "RyBvk00eKnDOTiRvsArBSYbjJpPOjHMX7DBGD6ND1jU2RgFqnbIPOEZYD2NKb8x+McbQHFDIzOrxMfpvlHkIAA=="
+            "timestamp": "2024-03-04T04:13:27.067893711Z",
+            "signature": "w3Jq0/gPbhzL5NFXIuSfiKgO7bR5uy7SS5JdnZgH3DMQffmmQDLGqJrOPJX4TLOx3Rf5zChtNe/lnDiFnk21Aw=="
+          },
+          {
+            "block_id_flag": 2,
+            "validator_address": "8BCE68C4092C2D0DC369682520BA31F833518036",
+            "timestamp": "2024-03-04T04:13:27.045886961Z",
+            "signature": "fH0LK4PwxX0qn6Q+RsbXybAVuWL6xX8u+cb90S1/IOuedtXFNFhU5hw31BNiHM+D6SFZ76NfptPjUAUQEX3ZBQ=="
           },
           {
             "block_id_flag": 2,
             "validator_address": "930C23CE7536B0EDE6AFE7754134D4011217D6AA",
-            "timestamp": "2024-02-28T09:02:29.153485525Z",
-            "signature": "Mvcd0JT/LPvF9MRhovLaUmQfoj2r6Op7yLmwc6igYldjTV/LLka109kuQyiLk0vq2FQ9k/EiiF2ZL3XLrOz+Cw=="
+            "timestamp": "2024-03-04T04:13:27.047890819Z",
+            "signature": "eN7YWKK966L3mzVn0CS7DBZ/MAB/tnoCUSDRNxYbzx+Lhlwf1IDu5Q99D8woFr9XI6IqcI54EsoqbQ/ZxSChCw=="
           },
           {
             "block_id_flag": 2,
             "validator_address": "A928A5794D9852389FF572B1941A672274C6C44A",
-            "timestamp": "2024-02-28T09:02:29.029890566Z",
-            "signature": "OYwr7lmXeTsjUApV+HdvZDwcY3tn6awk/1k7az84ZICIHIxTwSsriDkYWQf/GXhkagRufZXgRnboQZbO9gZwDQ=="
+            "timestamp": "2024-03-04T04:13:27.060385431Z",
+            "signature": "/6xOdVpK4L35nLnhca5FL7Li+bNPt/VnJp6p2mTZzjjJQqUPqG7dc8b/d8TYVxAa+jlkHVObGXoBADiZs+T7CA=="
           },
           {
             "block_id_flag": 2,
             "validator_address": "F22A003226B2221B00906C7435C2EB582223C5C2",
-            "timestamp": "2024-02-28T09:02:29.125203847Z",
-            "signature": "C43doTwTm74CaOdKdtXmoM0KRjbMkg3Z+HBG5ZbiVZb3esFOgRR0Mz/rB1QKKe/Cc170iNzJA+snF3jM1bwwAw=="
+            "timestamp": "2024-03-04T04:13:27.049958558Z",
+            "signature": "Bq2V6VCsLjdkTkd5fcRxbF23nI8QU9NIVS411jA6tOyiN94T/oQNTRvnWKUK7p/Vof83CSTCGLyNxIdjRZ8dDw=="
           },
           {
             "block_id_flag": 2,
             "validator_address": "FAC3A668D5BED3DDBD854B647E3113946BE3306A",
-            "timestamp": "2024-02-28T09:02:29.173507445Z",
-            "signature": "7bpyV5IuS541HGfRuEFKziBNCZi+/VpTqULLycJcTzu9CMmaNbRSzpiKXYSz+ZQwZNPG0mBpqPDYs4LbklcGDg=="
+            "timestamp": "2024-03-04T04:13:27.102867018Z",
+            "signature": "OzQnRR+qVsx0C52Eqyi04fO7Nf6ACmnvZCKGQZB0Ul+dPNkJuGtACvwFukSk5rW//lHS+GD+RjDgAayqemJtCw=="
           },
           {
             "block_id_flag": 2,
             "validator_address": "FD46D618D0CD459F791F44D9C6E54302658AD142",
-            "timestamp": "2024-02-28T09:02:29.175545726Z",
-            "signature": "WzrC1ldng/Y2+pwX8mC+Iad1+G0l0F9VfNxGVZmLPUgdDs6PntRNUBdhZG+CNYSs634q5hjgBzwabtm4exYaCw=="
+            "timestamp": "2024-03-04T04:13:27.145687993Z",
+            "signature": "TP0qPg1ERrftPKjLEvYpNtz/YKKpkt+dtCxPjLV41gwMOMLhfcKRNGcIp6RcKUrTIbBGFLqiBqEl6cFbfWKpCw=="
           }
         ]
       }
@@ -178,7 +184,8 @@ func initLatestTrustedHeader() {
 // master must be sure slave is our own enclave app
 // slave no need to be sure master is enclave app because the same vrf pubkey provided by all slave and master owned, it can check outside.
 func main() {
-	intelCPUFreq = int64(C.getFreq())
+	intelCPUFreq = 2800_000000
+	// intelCPUFreq = int64(C.getFreq()) // cpu not support, using hardcode again.
 	initConfig()
 	randClient = &keygrantor.SimpleClient{}
 	_, err := os.ReadFile(keyFile)
@@ -252,6 +259,7 @@ func main() {
 			return
 		}
 		now := getTimestampFromTSC()
+		fmt.Printf("now:%d,blkHash:%s\n", now, blkHash)
 		blockHash2VrfInfo[blkHash] = vrfInfo{
 			Beta:      beta,
 			Pi:        pi,
@@ -260,7 +268,7 @@ func main() {
 		}
 		blockHashSet = append(blockHashSet, blkHash)
 		LatestTrustedHeader = params.UntrustedHeader
-		if now >= latestStoreHeaderTimestamp+3600000 {
+		if now >= latestStoreHeaderTimestamp+1800000 {
 			sealLatestTrustedHeaderToFile()
 			latestStoreHeaderTimestamp = now
 		}
@@ -282,7 +290,9 @@ func main() {
 			w.Write([]byte("not has this blockhash"))
 			return
 		}
-		if vrfTimestamp > getTimestampFromTSC() {
+		now := getTimestampFromTSC()
+		fmt.Printf("vrfTimestamp:%d,now:%d,hash:%s\n", vrfTimestamp, now, blkHash)
+		if vrfTimestamp > now {
 			w.Write([]byte("please get vrf later, the blockhash not mature"))
 			return
 		}
@@ -371,11 +381,13 @@ func recoveryLatestTrustedHeaderFromFile() (fileExist bool) {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Printf("recovery latest trusted header from file, height is :%d\n", LatestTrustedHeader.Height)
 	return true
 }
 
 func sealLatestTrustedHeaderToFile() {
-	bz, err := tmjson.Marshal(LatestTrustedHeader)
+	h := LatestTrustedHeader
+	bz, err := tmjson.Marshal(h)
 	if err != nil {
 		panic(err)
 	}
@@ -387,4 +399,5 @@ func sealLatestTrustedHeaderToFile() {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Printf("store latest trusted header to file, its height: %d\n", h.Height)
 }
