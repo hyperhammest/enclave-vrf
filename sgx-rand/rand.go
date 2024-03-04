@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -13,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edgelesssys/ego/ecrypto"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartbch/egvm/keygrantor"
 	tmjson "github.com/tendermint/tendermint/libs/json"
@@ -75,7 +75,8 @@ func (p Params) verify(blkHash []byte) bool {
 	if !bytes.Equal(hash, blkHash) {
 		return false
 	}
-	err := light.VerifyAdjacent(&LatestTrustedHeader, &p.UntrustedHeader, p.Validators, 168*time.Hour, time.Now(), 10*time.Second)
+	trustingPeriod := 100000 * 24 * time.Hour
+	err := light.VerifyAdjacent(&LatestTrustedHeader, &p.UntrustedHeader, p.Validators, trustingPeriod, time.Now(), 10*time.Second)
 	if err != nil {
 		return false
 	}
@@ -372,10 +373,15 @@ func recoveryLatestTrustedHeaderFromFile() (fileExist bool) {
 		}
 		panic(err)
 	}
-	rawData, err := ecrypto.Unseal(fileData, nil)
-	if err != nil {
-		fmt.Printf("unseal file data failed, %s\n", err.Error())
-		panic(err)
+	if len(fileData) <= 65 {
+		panic("header file length incorrect!")
+	}
+	sig := fileData[:65]
+	rawData := fileData[65:]
+	hash := sha256.Sum256(rawData)
+	ok := crypto.VerifySignature(randClient.PubKeyBz, hash[:], sig[:64])
+	if !ok {
+		panic("verify sig failed!")
 	}
 	err = tmjson.Unmarshal(rawData, &LatestTrustedHeader)
 	if err != nil {
@@ -391,10 +397,12 @@ func sealLatestTrustedHeaderToFile() {
 	if err != nil {
 		panic(err)
 	}
-	out, err := ecrypto.SealWithUniqueKey(bz, nil)
+	hash := sha256.Sum256(bz)
+	sig, err := crypto.Sign(hash[:], randClient.PrivKey.ToECDSA())
 	if err != nil {
 		panic(err)
 	}
+	out := append(sig, bz...)
 	err = os.WriteFile(headerFile, out, 0600)
 	if err != nil {
 		panic(err)
