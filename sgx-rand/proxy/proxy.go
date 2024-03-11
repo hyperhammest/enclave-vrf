@@ -31,6 +31,7 @@ var smartBCHAddrList []string
 var vrfPubkey string
 var vrfAddress string
 
+var blockHashLock sync.RWMutex
 var blockHashSet []string
 var blockHash2Time = make(map[string]int64)
 var blockHash2Height = make(map[string]uint64)
@@ -127,7 +128,9 @@ func getBlockHashAndVRFsAndClearOldData() {
 			if len(blockHashSet) > maxBlockHashCount*1.5 {
 				fmt.Println("clear blockHashSet")
 				for _, hash := range blockHashSet[:len(blockHashSet)-maxBlockHashCount] {
+					blockHashLock.Lock()
 					delete(blockHash2Time, hash)
+					blockHashLock.Unlock()
 					delete(blockHash2Height, hash)
 					vrfLock.Lock()
 					delete(blockHash2VrfResult, hash)
@@ -173,7 +176,9 @@ func sendBlockHash2SGX(height uint64) {
 	bodyReader := bytes.NewReader(jsonBody)
 	//todo: add response verify, make sure blockHash sent to server
 	utils.HttpPost(serverTlsConfig, fmt.Sprintf("https://"+*serverAddr+"/blockhash?b=%s", blkHash), bodyReader)
+	blockHashLock.Lock()
 	blockHash2Time[blkHash] = time.Now().Unix()
+	blockHashLock.Unlock()
 	blockHash2Height[strings.ToLower(blkHash)] = height
 	blockHashSet = append(blockHashSet, blkHash)
 	latestHeightSentToRand = height
@@ -191,7 +196,10 @@ func getVrf() {
 	blockHashCacheWaitingVrf = nil
 	cacheLock.Unlock()
 	for _, blkHash := range cache {
-		if blockHash2Time[blkHash]+5 >= now {
+		blockHashLock.RLock()
+		t := blockHash2Time[blkHash]
+		blockHashLock.RUnlock()
+		if t+5 >= now {
 			newCache = append(newCache, blkHash)
 			continue
 		}
@@ -200,8 +208,8 @@ func getVrf() {
 		if len(res) != 0 {
 			vrfLock.Lock()
 			blockHash2VrfResult[blkHash] = string(res)
-			latestVrfBlockNumber = blockHash2Height[blkHash]
 			vrfLock.Unlock()
+			latestVrfBlockNumber = blockHash2Height[blkHash]
 		} else {
 			newCache = append(newCache, blkHash)
 		}
