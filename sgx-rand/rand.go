@@ -222,6 +222,7 @@ func main() {
 		defer lock.Unlock()
 
 		if blockHash2VrfInfo[blkHash].Timestamp != 0 {
+			// response ok status, allow reaccess this endpoint with same blockhash
 			w.Write([]byte("this blockhash already here"))
 			return
 		}
@@ -288,12 +289,14 @@ func main() {
 
 		vrfTimestamp := blockHash2VrfInfo[blkHash].Timestamp
 		if vrfTimestamp == 0 {
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("not has this blockhash"))
 			return
 		}
 		now := getTimestampFromTSC()
 		fmt.Printf("vrfTimestamp:%d,now:%d,hash:%s\n", vrfTimestamp, now, blkHash)
 		if vrfTimestamp > now {
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("please get vrf later, the blockhash not mature"))
 			return
 		}
@@ -343,9 +346,13 @@ func initConfig() {
 	keyGrantorUrl = *keyGrantorUrlP
 }
 
+//func getTimestampFromTSC() int64 {
+//	cycleNumber := int64(C.get_tsc())
+//	return cycleNumber * 1000 / intelCPUFreq
+//}
+
 func getTimestampFromTSC() int64 {
-	cycleNumber := int64(C.get_tsc())
-	return cycleNumber * 1000 / intelCPUFreq
+	return time.Now().UnixMilli()
 }
 
 func clearOldBlockHash() {

@@ -102,11 +102,16 @@ func main() {
 	proxy.randTlsConfig = verifyRandAndGetTlsConfig(proxy.randAddr, signer, uniqueID)
 	proxy.smartBCHAddrList = getSmartBchNodeUrls(*smartBCHAddrListArg)
 	n, err := proxy.getLatestVrfGotBlockNumber()
-	if err == leveldb.ErrNotFound {
-		proxy.latestVrfGotBlockNumber = proxy.getLatestTrustedHeight()
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			proxy.latestVrfGotBlockNumber = proxy.getLatestTrustedHeight()
+		} else {
+			panic(err)
+		}
 	} else {
 		proxy.latestVrfGotBlockNumber = n
 	}
+	fmt.Printf("proxy start with proxy.latestVrfGotBlockNumber:%d\n", proxy.latestVrfGotBlockNumber)
 	proxy.latestHeightCleaned = proxy.latestVrfGotBlockNumber
 	proxy.work()
 	proxy.initVrfHttpHandlers()

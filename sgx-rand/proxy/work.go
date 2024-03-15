@@ -52,9 +52,11 @@ func (p *Proxy) getVRFsFromRand() {
 	nextHeightToGotVrf := p.latestVrfGotBlockNumber + 1
 	for {
 		p.blockHashLock.RLock()
+		fmt.Printf("get the blockHashLock in getVRFsFromRand, nextHeightToGotVrf is %d\n", nextHeightToGotVrf)
 		blkHash, exist := p.heightToBlockHash[nextHeightToGotVrf]
 		p.blockHashLock.RUnlock()
 		if !exist {
+			fmt.Printf("%d not exist in heightToBlockHash map\n", nextHeightToGotVrf)
 			time.Sleep(200 * time.Millisecond)
 			continue
 		}
