@@ -71,7 +71,7 @@ func (p *Proxy) getVRFsFromRand() {
 			p.saveLatestVrfGotBlockNumber(nextHeightToGotVrf)
 			nextHeightToGotVrf++
 		} else {
-			time.Sleep(200 * time.Second)
+			time.Sleep(200 * time.Millisecond)
 		}
 	}
 }
