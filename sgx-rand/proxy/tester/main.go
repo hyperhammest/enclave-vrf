@@ -21,8 +21,8 @@ type tester struct {
 
 func main() {
 	proxyAddrP := flag.String("p", "localhost:8096", "proxy address")
-	startHeightP := flag.Uint64("s", 14099517, "start height")
-	endHeightP := flag.Uint64("s", 14249869, "end height")
+	startHeightP := flag.Uint64("s", 14144977, "start height")
+	endHeightP := flag.Uint64("e", 14145177, "end height")
 	testModeP := flag.String("m", "H", "query proxy speed, in three mode: H(High speed), M(middle speed), L(low speed)")
 	smartBCHAddrP := flag.String("b", "http://13.212.74.236:8545", "smartbch address")
 	flag.Parse()
@@ -37,6 +37,7 @@ func main() {
 	t.catchBlockHashes()
 	fmt.Println("catch up all blockHash!!!")
 	t.getVrfResults()
+	fmt.Println("pressure test success!")
 }
 
 func (t *tester) catchBlockHashes() {
@@ -52,11 +53,13 @@ func (t *tester) catchBlockHashes() {
 }
 
 func (t *tester) getVrfResults() {
-	for h, hash := range t.blockHeightToHashes {
-		res := getVrf(t.proxyAddr, hash)
-		if res != "" {
-			t.blockHashToResult[hash] = res
-			fmt.Printf("get vrf at height:%d, res is %s\n", h, res)
+	for i := 0; i < 10000; i++ {
+		for h, hash := range t.blockHeightToHashes {
+			res := getVrf(t.proxyAddr, hash)
+			if res != "" {
+				t.blockHashToResult[hash] = res
+				fmt.Printf("get vrf at height:%d, res is %s\n", h, res)
+			}
 		}
 	}
 }

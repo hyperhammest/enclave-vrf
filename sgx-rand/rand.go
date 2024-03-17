@@ -185,7 +185,8 @@ func initLatestTrustedHeader() {
 // master must be sure slave is our own enclave app
 // slave no need to be sure master is enclave app because the same vrf pubkey provided by all slave and master owned, it can check outside.
 func main() {
-	intelCPUFreq = 2800_000000
+	// intelCPUFreq is the cpu frequency decrease 1000x
+	intelCPUFreq = 2800_000
 	// intelCPUFreq = int64(C.getFreq()) // cpu not support, using hardcode again.
 	initConfig()
 	randClient = &keygrantor.SimpleClient{}
@@ -346,13 +347,9 @@ func initConfig() {
 	keyGrantorUrl = *keyGrantorUrlP
 }
 
-//func getTimestampFromTSC() int64 {
-//	cycleNumber := int64(C.get_tsc())
-//	return cycleNumber * 1000 / intelCPUFreq
-//}
-
 func getTimestampFromTSC() int64 {
-	return time.Now().UnixMilli()
+	cycleNumber := int64(C.get_tsc())
+	return cycleNumber / intelCPUFreq
 }
 
 func clearOldBlockHash() {
