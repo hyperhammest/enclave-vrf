@@ -64,7 +64,7 @@ type Proxy struct {
 }
 
 func main() {
-	proxy := Proxy{randInitHeight: 14099517}
+	proxy := Proxy{randInitHeight: 14306120}
 	proxy.heightToBlockHash = make(map[uint64]string)
 	proxy.blockHash2VrfResult = make(map[string]string)
 

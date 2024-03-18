@@ -52,16 +52,16 @@ func (p *Proxy) getVRFsFromRand() {
 	nextHeightToGotVrf := p.latestVrfGotBlockNumber + 1
 	for {
 		p.blockHashLock.RLock()
-		fmt.Printf("get the blockHashLock in getVRFsFromRand, nextHeightToGotVrf is %d\n", nextHeightToGotVrf)
+		if nextHeightToGotVrf%200 == 0 {
+			fmt.Printf("get the blockHashLock in getVRFsFromRand, nextHeightToGotVrf is %d\n", nextHeightToGotVrf)
+		}
 		blkHash, exist := p.heightToBlockHash[nextHeightToGotVrf]
 		p.blockHashLock.RUnlock()
 		if !exist {
-			fmt.Printf("%d not exist in heightToBlockHash map\n", nextHeightToGotVrf)
 			time.Sleep(200 * time.Millisecond)
 			continue
 		}
 		res := utils.HttpGet(p.randTlsConfig, fmt.Sprintf("https://"+p.randAddr+"/vrf?b=%s", blkHash))
-		fmt.Printf("get vrf, res:%s\n", res)
 		if len(res) != 0 {
 			p.vrfLock.Lock()
 			p.blockHash2VrfResult[blkHash] = string(res)
@@ -69,6 +69,9 @@ func (p *Proxy) getVRFsFromRand() {
 			p.vrfLock.Unlock()
 			p.saveVrfResultByBlockHash(blkHash, string(res))
 			p.saveLatestVrfGotBlockNumber(nextHeightToGotVrf)
+			if nextHeightToGotVrf%200 == 0 {
+				fmt.Printf("get vrf success, height:%d\n", nextHeightToGotVrf)
+			}
 			nextHeightToGotVrf++
 		} else {
 			time.Sleep(200 * time.Millisecond)

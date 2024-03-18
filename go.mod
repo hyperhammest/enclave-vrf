@@ -3,9 +3,10 @@ module github.com/smartbch/enclave-vrf
 go 1.18
 
 require (
-	github.com/edgelesssys/ego v1.2.0
+	github.com/edgelesssys/ego v1.5.0
 	github.com/ethereum/go-ethereum v1.11.0
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.9.0
+	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/vechain/go-ecvrf v0.0.0-20220525125849-96fa0442e765
 )
 
@@ -13,6 +14,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/libp2p/go-buffer-pool v0.0.2 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
@@ -35,8 +37,8 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa // indirect
 	github.com/smartbch/egvm v0.0.0-20240127112228-1b3c0eb853d5
-	golang.org/x/net v0.8.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/genproto v0.0.0-20210624195500-8bfb893ecb84 // indirect
 	google.golang.org/grpc v1.38.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
@@ -58,13 +60,13 @@ require (
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/tyler-smith/go-bip32 v1.0.0 // indirect
-	golang.org/x/sys v0.7.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )
 
 require (
 	github.com/btcsuite/btcd v0.22.0-beta
-	golang.org/x/crypto v0.7.0 // indirect
+	golang.org/x/crypto v0.21.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 )
 
