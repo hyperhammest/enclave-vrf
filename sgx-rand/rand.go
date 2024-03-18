@@ -89,10 +89,6 @@ func initLatestTrustedHeader() {
 		return
 	}
 	initHeaderStr := `{
-  "jsonrpc": "2.0",
-  "id": -1,
-  "result": {
-    "signed_header": {
       "header": {
         "version": {
           "block": "11"
@@ -190,10 +186,7 @@ func initLatestTrustedHeader() {
           }
         ]
       }
-    },
-    "canonical": true
-  }
-}`
+    }`
 	err := tmjson.Unmarshal([]byte(initHeaderStr), &LatestTrustedHeader)
 	if err != nil {
 		panic(err)
