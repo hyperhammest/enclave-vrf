@@ -43,7 +43,7 @@ func VerifyServer(address string, signer, uniqueID []byte, verifyReport func(rep
 	var pubkeyStr string
 	var reportStr string
 	var certBytes []byte
-	var pubkeyHashBytes []byte
+	var pubkeyHashBytes [32]byte
 	var reportBytes []byte
 	var err error
 
@@ -55,15 +55,16 @@ func VerifyServer(address string, signer, uniqueID []byte, verifyReport func(rep
 	if err != nil {
 		panic(err)
 	}
-	pubkeyHashBytes, err = hex.DecodeString(pubkeyStr)
+	pubkeyBytes, err := hex.DecodeString(pubkeyStr)
 	if err != nil {
 		panic(err)
 	}
+	pubkeyHashBytes = sha256.Sum256(pubkeyBytes)
 	reportBytes, err = hex.DecodeString(reportStr)
 	if err != nil {
 		panic(err)
 	}
-	if err := verifyReport(reportBytes, certBytes, pubkeyHashBytes, signer, uniqueID); err != nil {
+	if err := verifyReport(reportBytes, certBytes, pubkeyHashBytes[:], signer, uniqueID); err != nil {
 		panic(err)
 	}
 	fmt.Printf("verify server:%s passed\n", address)
