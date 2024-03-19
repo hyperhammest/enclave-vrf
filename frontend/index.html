@@ -30,6 +30,9 @@
           <textarea class="textarea" rows="3" placeholder="0x" readonly id="currOps"></textarea>
         </div>
       </div>
+        <div class="control">
+          <button class="button is-link" id="showInfoBtn">ShowInfo</button>
+        </div>
     </div>
 
     <div class="panel is-link">
@@ -149,6 +152,9 @@
     import u from './umbrella-3.3.0.esm.js';
     import { toast } from './bulma-toast.esm.js';
 
+    // pubkey: 038dd23022e82454282ec17a1aa67c5acd745604212a393f5605989eb2986944d9
+    // curl https://enclave1.vrf.cash:8096/vrf?b=4212ee37f9689f7e2949bcc6899ba2b3a135a0b98cd0ad606cd346a73c590e67 -k
+    // {“PI”:“034b4e01a5111d08b7b4e77ca9f42e2ea09f32c37649ed70e1e903e3d0c76f0abf561cc3c6f7a5ee337fdd46ceded73241b787437df267cfc45a42f4ce4513fa6737d85a7fd5a19ba9d07baf0fe28310f0",“Beta”:“668d19524da09353f4e2ceff5fac3063e45822a4f83de9310a3f179d50ae9ae0",“S”:“1cafa451a2f93c97a301a7126429bcf22c03840d614f020c9bcb0af2ee326ed4",“R”:“0a57f2d7da93c5810271542593d375f90adffc247520960d57adf28c3d757b10",“V”:28
 
     // A Web3Provider wraps a standard Web3 provider, which is
     // what MetaMask injects as window.ethereum into each page
@@ -163,7 +169,7 @@
     const signer = provider.getSigner();
     const myAddr = await signer.getAddress();
 
-    const govAddr = '0xc00eccdFFcc0CCe32E62c6124601024c1d3b7988';
+    const govAddr = '0x18C51aa3d1F018814716eC2c7C41A20d4FAf023C';
     const govABI = [
       `function pubKey() public view returns (bytes memory)`,
       `function minProposalId() public view returns (uint256)`,
@@ -181,32 +187,36 @@
     u('#myAddr').first().value = myAddr;
     u('#govAddr').first().value = govAddr;
 
-    gov.pubKey()
-      .then(pubKey => u('#currPubKey').first().value = pubKey)
-      .catch(err => console.log('can not get pubkey!', err));
+    async function showInfo() {
+      console.log("here");
+      const pubKey = await gov.pubKey();
+      console.log(pubKey);
+      u('#currPubKey').first().value = pubKey;
+      //.catch(err => console.log('can not get pubkey!', err));
 
-    gov.getAllOperators()
-      .then(ops => u('#currOps').text(ops.join('\n')))
-      .catch(err => console.log('can not get ops!', err));
+      const ops = await gov.getAllOperators();
+      console.log(ops);
+      u('#currOps').text(ops.join('\n'));
+      //.catch(err => console.log('can not get ops!', err));
 
-    getAllProposals(gov).then(proposals => {
+      const proposals = await getAllProposals(gov);
       console.log('proposals:', proposals);
       u('#proposals').empty();
       for (let p of proposals) {
-        let votes = p.votes.split("").reverse().join("")
-          .replaceAll('1', '✅')
-          .replaceAll('0', '❓') + '...';
-        let type, abbr, full;
-        if (p.newOps.length > 0) {
-          type = 'Operators';
-          abbr = p.newOps.length.toString();
-          full = p.newOps.join('\n');
-        } else {
-          type = 'PubKey';
-          abbr = p.newPubKey.substring(0, 10) + '...';
-          full = p.newPubKey;
-        }
-        u('#proposals').append(`
+          let votes = p.votes.split("").reverse().join("")
+            .replaceAll('1', '✅')
+            .replaceAll('0', '❓') + '...';
+          let type, abbr, full;
+          if (p.newOps.length > 0) {
+            type = 'Operators';
+            abbr = p.newOps.length.toString();
+            full = p.newOps.join('\n');
+          } else {
+            type = 'PubKey';
+            abbr = p.newPubKey.substring(0, 10) + '...';
+            full = p.newPubKey;
+          }
+          u('#proposals').append(`
 <tr>
   <td>${p.id}</td>
   <td>${type}</td>
@@ -215,7 +225,7 @@
   <td>${votes}</td>
 </tr>`)
       }
-    }).catch(err => console.log('can not get proposals!', err));
+    }
 
     u('#newProposalType').handle('change', e => {
       const hint = e.target.value == 'Operators'
@@ -235,8 +245,15 @@
         await gov.connect(signer).proposeNewOperators(newOps);
       } else {
         console.log('propose new pubkey:', pubKeyOrOps);
-        await gov.connect(signer).proposeNewPubKey(pubKeyOrOps);
+	const govC = gov.connect(signer);
+        console.log('govC:', govC, signer);
+        const req = await govC.proposeNewPubKey(pubKeyOrOps);
+        console.log('req:', req);
       }
+    });
+
+    u('#showInfoBtn').handle('click', async (e) => {
+       await showInfo();
     });
 
     u('#voteProposalBtn').handle('click', async (e) => {
@@ -270,7 +287,7 @@
         try {
           proposals.push(await getProposal(gov, i));
         } catch (err) {
-          // console.log(err);
+          console.log("at", i, err);
           break;
         }
       }
