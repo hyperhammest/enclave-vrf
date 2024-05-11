@@ -34,6 +34,10 @@ func getValidators(addrs []string, height uint64) []*types.Validator {
 func getValidatorsByNumber(url string, height uint64) ([]*types.Validator, error) {
 	reqUrl := fmt.Sprintf("%s/validators?height=%d", url, height)
 	resp, err := http.Get(reqUrl)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println(resp.Status)
@@ -79,6 +83,10 @@ func getBlock(addrs []string, height uint64) *types.Block {
 func getBlockByNumber(url string, height uint64) (*types.Block, error) {
 	reqUrl := fmt.Sprintf("%s/block?height=%d", url, height)
 	resp, err := http.Get(reqUrl)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println(resp.Status)
@@ -124,6 +132,10 @@ func getSignedHeader(addrs []string, height uint64) *types.SignedHeader {
 func getSignedHeaderByNumber(url string, height uint64) (*types.SignedHeader, error) {
 	reqUrl := fmt.Sprintf("%s/commit?height=%d", url, height)
 	resp, err := http.Get(reqUrl)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println(resp.Status)
